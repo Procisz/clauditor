@@ -1,0 +1,16 @@
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+node_modules
+dist
+dist-electron
+.playwright-mcp/
+${local_app_data}*/

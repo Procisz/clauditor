@@ -1,0 +1,57 @@
+{
+	"name": "clauditor",
+	"author": "Ágoston Zajkás",
+	"version": "1.12.1",
+	"private": true,
+	"main": "electron/main.js",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build && mv dist/index.html dist/Clauditor.html && node scripts/postbuild.mjs",
+		"preview": "vite preview",
+		"electron:dev": "npm run build && electron .",
+		"electron:build": "npm run build && electron-builder",
+		"release": "bash scripts/release.sh",
+		"release:minor": "bash scripts/release.sh minor",
+		"release:major": "bash scripts/release.sh major",
+		"release:electron": "bash scripts/release.sh --electron"
+	},
+	"build": {
+		"appId": "com.clauditor.app",
+		"productName": "Clauditor",
+		"files": [
+			"electron/**/*",
+			"dist/Clauditor.html"
+		],
+		"directories": {
+			"output": "dist-electron"
+		},
+		"mac": {
+			"target": "dmg",
+			"category": "public.app-category.developer-tools",
+			"icon": "assets/clauditor-icon.png"
+		},
+		"win": {
+			"target": "nsis",
+			"icon": "assets/clauditor-icon.png"
+		},
+		"linux": {
+			"target": "AppImage",
+			"icon": "assets/clauditor-icon.png"
+		}
+	},
+	"devDependencies": {
+		"electron": "^41.0.2",
+		"electron-builder": "^26.8.1",
+		"html-minifier-terser": "^7.2.0",
+		"vite": "^6.0.0",
+		"vite-plugin-html": "^3.2.2",
+		"vite-plugin-singlefile": "^2.0.0"
+	},
+	"dependencies": {
+		"@tailwindcss/vite": "^4.2.2",
+		"apexcharts": "^5.10.4",
+		"daisyui": "^5.5.19",
+		"electron-updater": "^6.8.3",
+		"tailwindcss": "^4.2.2"
+	}
+}

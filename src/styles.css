@@ -1,0 +1,171 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* ── Light theme: winter ── */
+@plugin "daisyui/theme" {
+  name: "winter";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(97.466% 0.011 259.822);
+  --color-base-300: oklch(93.268% 0.016 262.751);
+  --color-base-content: oklch(41.886% 0.053 255.824);
+  --color-primary: oklch(56.86% 0.255 257.57);
+  --color-primary-content: oklch(91.372% 0.051 257.57);
+  --color-secondary: oklch(42.551% 0.161 282.339);
+  --color-secondary-content: oklch(88.51% 0.032 282.339);
+  --color-accent: oklch(59.939% 0.191 335.171);
+  --color-accent-content: oklch(11.988% 0.038 335.171);
+  --color-neutral: oklch(19.616% 0.063 257.651);
+  --color-neutral-content: oklch(83.923% 0.012 257.651);
+  --color-info: oklch(88.127% 0.085 214.515);
+  --color-info-content: oklch(17.625% 0.017 214.515);
+  --color-success: oklch(80.494% 0.077 197.823);
+  --color-success-content: oklch(16.098% 0.015 197.823);
+  --color-warning: oklch(89.2% 0.147 71.47);
+  --color-warning-content: oklch(17.834% 0.009 71.47);
+  --color-error: oklch(73.092% 0.11 20.076);
+  --color-error-content: oklch(14.618% 0.022 20.076);
+  --radius-selector: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* ── Dark theme: dracula ── */
+@plugin "daisyui/theme" {
+  name: "dracula";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(28.822% 0.022 277.508);
+  --color-base-200: oklch(26.805% 0.02 277.508);
+  --color-base-300: oklch(24.787% 0.019 277.508);
+  --color-base-content: oklch(97.747% 0.007 106.545);
+  --color-primary: oklch(75.461% 0.183 346.812);
+  --color-primary-content: oklch(15.092% 0.036 346.812);
+  --color-secondary: oklch(74.202% 0.148 301.883);
+  --color-secondary-content: oklch(14.84% 0.029 301.883);
+  --color-accent: oklch(83.392% 0.124 66.558);
+  --color-accent-content: oklch(16.678% 0.024 66.558);
+  --color-neutral: oklch(39.445% 0.032 275.524);
+  --color-neutral-content: oklch(87.889% 0.006 275.524);
+  --color-info: oklch(88.263% 0.093 212.846);
+  --color-info-content: oklch(17.652% 0.018 212.846);
+  --color-success: oklch(87.099% 0.219 148.024);
+  --color-success-content: oklch(17.419% 0.043 148.024);
+  --color-warning: oklch(95.533% 0.134 112.757);
+  --color-warning-content: oklch(19.106% 0.026 112.757);
+  --color-error: oklch(68.22% 0.206 24.43);
+  --color-error-content: oklch(13.644% 0.041 24.43);
+  --radius-selector: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* ── Chart containers ── */
+.chart-wrap        { position: relative; }
+.chart-wrap-sm     { position: relative; }
+.chart-wrap-lg     { position: relative; }
+.chart-wrap-radial { position: relative; }
+
+/* ── ApexCharts theme integration ── */
+.apexcharts-canvas { background: transparent !important; }
+.apexcharts-tooltip { border-radius: 8px !important; font-size: 12px !important; }
+
+/* Tooltip colors respond to data-theme switches without chart recreation */
+[data-theme="winter"] .apexcharts-tooltip {
+  background: #ffffff !important;
+  border-color: #dde3f0 !important;
+  color: #3d4a6b !important;
+}
+[data-theme="winter"] .apexcharts-tooltip-title {
+  background: #f0f3fa !important;
+  border-bottom-color: #dde3f0 !important;
+  color: #3d4a6b !important;
+}
+[data-theme="dracula"] .apexcharts-tooltip {
+  background: #282a36 !important;
+  border-color: #44475a !important;
+  color: #f8f8f2 !important;
+}
+[data-theme="dracula"] .apexcharts-tooltip-title {
+  background: #21222c !important;
+  border-bottom-color: #44475a !important;
+  color: #f8f8f2 !important;
+}
+.apexcharts-tooltip-text-y-label,
+.apexcharts-tooltip-text-y-value,
+.apexcharts-tooltip-text-z-value {
+  color: inherit !important;
+}
+
+/* ── Heatmap cell strokes ── */
+.apexcharts-heatmap-rect {
+  transition: filter 0.1s, stroke-width 0.1s;
+}
+[data-theme="winter"] .apexcharts-heatmap-rect {
+  stroke: oklch(100% 0 0 / 70%) !important;
+  stroke-width: 1px !important;
+}
+[data-theme="dracula"] .apexcharts-heatmap-rect {
+  stroke: oklch(28.822% 0.022 277.508 / 90%) !important;
+  stroke-width: 1px !important;
+}
+[data-theme="winter"] .apexcharts-heatmap-rect:hover,
+[data-theme="winter"] .apexcharts-heatmap-rect[selected="true"] {
+  stroke-width: 2px !important;
+}
+[data-theme="dracula"] .apexcharts-heatmap-rect:hover,
+[data-theme="dracula"] .apexcharts-heatmap-rect[selected="true"] {
+  stroke-width: 2px !important;
+}
+
+
+/* ── Subagent breakdown ── */
+.breakdown-row td   { padding: 0 !important; }
+.breakdown-inner    { display: flex; gap: 24px; padding: 20px 24px; align-items: flex-start; background: var(--color-base-100); box-shadow: inset 0 4px 12px oklch(0% 0 0 / 4%); border-top: 1px solid var(--color-base-300); border-bottom-left-radius: var(--radius-box); border-bottom-right-radius: var(--radius-box); }
+.breakdown-table    { width: 100%; font-size: 12px; border-collapse: collapse; }
+.breakdown-table th { font-size: 11px; font-weight: 600; padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--color-base-300); color: var(--color-base-content); opacity: .5; letter-spacing: 0.04em; text-transform: uppercase; }
+.breakdown-table th.num { text-align: right; }
+.breakdown-table td { padding: 6px 10px; }
+.breakdown-table tbody tr:hover { background: var(--color-base-300); }
+.breakdown-chart    { width: 160px; height: 160px; flex-shrink: 0; }
+
+/* ── Sortable table arrows ── */
+table[data-sortable] thead th.sortable        { cursor: pointer; user-select: none; }
+table[data-sortable] th.sortable::after       { content: ' ⇅'; font-size: 9px; opacity: .3; }
+table[data-sortable] th.sort-asc::after       { content: ' ▲'; font-size: 9px; opacity: 1; }
+table[data-sortable] th.sort-desc::after      { content: ' ▼'; font-size: 9px; opacity: 1; }
+table[data-sortable] th.sort-asc,
+table[data-sortable] th.sort-desc             { color: var(--color-primary); }
+
+/* ── Burn rate bar ── */
+.burn-bar-fill {
+  height: 100%; border-radius: 99px;
+  transition: width .4s ease, background .4s ease;
+}
+
+
+/* ── Custom badge colors (agent palette overflow) ── */
+.badge-orange  { background-color: oklch(72% 0.17 60);  color: oklch(15% 0.02 60);  border-color: oklch(72% 0.17 60); }
+.badge-pink    { background-color: oklch(73% 0.18 340); color: oklch(15% 0.02 340); border-color: oklch(73% 0.18 340); }
+.badge-lime    { background-color: oklch(80% 0.18 130); color: oklch(15% 0.02 130); border-color: oklch(80% 0.18 130); }
+.badge-fuchsia { background-color: oklch(68% 0.22 310); color: oklch(15% 0.02 310); border-color: oklch(68% 0.22 310); }
+
+/* ── Misc ── */
+.num    { text-align: right; font-variant-numeric: tabular-nums; }
+.mono   { font-family: monospace; font-size: 12px; opacity: .55; }
+#dashboard { display: none; }
+#loading   { display: none; }
+

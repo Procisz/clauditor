@@ -1,0 +1,166 @@
+<!-- View: Overview -->
+<div id="view-overview">
+
+  <!-- Markup config -->
+  <div class="flex items-center gap-4 mb-5 text-sm flex-wrap">
+    <span>AzTech markup multiplier:</span>
+    <label class="flex items-center gap-2">
+      <input type="number" id="markup-input" step="0.01" min="1" class="input input-border input-sm w-24" onchange="onMarkupChange()" />
+      <span class="opacity-60">× base cost</span>
+    </label>
+    <span class="ml-auto text-xs opacity-40" id="last-updated"></span>
+  </div>
+  <div class="flex items-center gap-2 text-xs mb-5" style="background:color-mix(in oklch,var(--color-warning)12%,transparent);border:1px solid color-mix(in oklch,var(--color-warning)35%,transparent);border-radius:0.5rem;padding:0.4rem 0.75rem;color:var(--color-base-content);opacity:0.8;">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;color:var(--color-warning);opacity:1;"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 10.5h-1.5v-5h1.5v5zm0-6.5h-1.5V3.5h1.5V5z"/></svg>
+    Costs are estimates based on public Anthropic pricing — actual charges may differ.
+  </div>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5" id="cards"></div>
+
+  <!-- Burn rate -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
+    <div class="card-body p-4 gap-3">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h3 class="card-title text-base">Monthly Budget</h3>
+        <label class="flex items-center gap-2 text-sm opacity-70">
+          Budget $<input type="number" id="budget-input" min="0" step="10" placeholder="0 = off"
+            class="input input-border input-sm w-24"
+            oninput="renderBurnRate()" />
+        </label>
+      </div>
+      <div id="burn-content"></div>
+    </div>
+  </div>
+
+  <!-- Activity heatmap -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Activity Heatmap <span class="text-sm font-normal opacity-50">(final cost per day, last 52 weeks)</span></h3>
+      <div id="chart-heatmap"></div>
+      <div id="heatmap-legend" class="flex items-center gap-1.5 justify-end text-xs opacity-50 mt-1"></div>
+    </div>
+  </div>
+
+  <!-- Cost over time -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <div class="flex items-center flex-wrap gap-3 justify-between">
+        <h3 class="card-title text-base">Cost Over Time <span class="text-sm font-normal opacity-50">(final, incl. markup)</span></h3>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-2">
+            <input type="date" id="date-from" class="input input-border input-sm" onchange="renderAll()" />
+            <span class="text-sm opacity-50">to</span>
+            <input type="date" id="date-to" class="input input-border input-sm" onchange="renderAll()" />
+          </div>
+          <div class="flex items-center gap-0.5" id="view-toggle">
+            <button class="btn btn-sm btn-primary" data-view="daily" onclick="setView('daily')">Daily</button>
+            <button class="btn btn-sm btn-ghost" data-view="weekly" onclick="setView('weekly')">Weekly</button>
+            <button class="btn btn-sm btn-ghost" data-view="monthly" onclick="setView('monthly')">Monthly</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCsv()">Export CSV</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><div id="chart-cost"></div></div>
+      <p class="text-xs opacity-40 text-center">Click a bar to see session breakdown</p>
+    </div>
+  </div>
+
+  <!-- Day/Week/Month detail panel -->
+  <div id="detail-panel" class="card bg-base-100 card-border border-base-300 mb-4" style="display:none">
+    <div class="card-body p-4 gap-3">
+      <div class="flex items-center justify-between">
+        <h3 class="card-title text-base" id="detail-title"></h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="table-detail" class="table table-sm">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Project</th>
+              <th class="num">Calls</th>
+              <th class="num">Input</th>
+              <th class="num">Output</th>
+              <th class="num">Cache Read</th>
+              <th class="num">Base Cost</th>
+              <th class="num">Final Cost</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Token breakdown -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Token Breakdown</h3>
+      <div class="chart-wrap"><div id="chart-tokens"></div></div>
+    </div>
+  </div>
+
+  <!-- Cache efficiency -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Cache Efficiency <span class="text-sm font-normal opacity-50">(cache read % = money saved)</span></h3>
+      <div class="chart-wrap"><div id="chart-cache"></div></div>
+    </div>
+  </div>
+
+  <!-- Monthly burn-up -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Monthly Burn-up <span class="text-sm font-normal opacity-50">(cumulative spend vs budget pace)</span></h3>
+      <div id="chart-cumulative"></div>
+    </div>
+  </div>
+
+  <!-- Model table -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Model Breakdown</h3>
+      <div class="overflow-x-auto">
+        <table id="table-models" class="table table-sm">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th class="num">Calls</th>
+              <th class="num">Input Tokens</th>
+              <th class="num">Output Tokens</th>
+              <th class="num">Cache Write</th>
+              <th class="num">Cache Read</th>
+              <th class="num">Base Cost</th>
+              <th class="num">Final Cost</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects treemap + table -->
+  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Top Projects by Cost</h3>
+      <div id="chart-treemap"></div>
+      <div class="overflow-x-auto">
+        <table id="table-projects" class="table table-sm">
+          <thead>
+            <tr>
+              <th>Project (cwd)</th>
+              <th class="num">Sessions</th>
+              <th class="num">Calls</th>
+              <th class="num">Base Cost</th>
+              <th class="num">Final Cost</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /view-overview -->
