@@ -2,6 +2,7 @@
 // TODAY — tab orchestrator, day navigation, renderTodayView
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
+import { todayKey, shiftDay } from '../../core/dates.js';
 import { renderTodayCards } from './cards.js';
 import { renderTodayModelPie, renderTodayTokenPie, renderTodayHourlyChart, renderTodayResponseTimeChart, renderTodayCacheChart, renderSessionTimeline, renderTodayCumulativeCost, renderCallsScatter } from './charts.js';
 import { renderTodaySessionsTable } from './sessions.js';
@@ -12,18 +13,13 @@ export function getTodayEntries() {
 }
 
 export function updateDayNav() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const isToday = state.selectedDate >= today;
   const picker = document.getElementById('day-picker');
   picker.value = state.selectedDate;
   picker.max = today;
   document.getElementById('btn-next-day').disabled = isToday;
   document.getElementById('btn-today-jump').disabled = isToday;
-}
-
-export function shiftDay(dateStr, delta) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + delta)).toISOString().slice(0, 10);
 }
 
 export function prevDay() {
@@ -33,7 +29,7 @@ export function prevDay() {
 }
 
 export function nextDay() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   if (state.selectedDate >= today) return;
   state.selectedDate = shiftDay(state.selectedDate, +1);
   updateDayNav();
@@ -41,7 +37,7 @@ export function nextDay() {
 }
 
 export function goToToday() {
-  state.selectedDate = new Date().toISOString().slice(0, 10);
+  state.selectedDate = todayKey();
   updateDayNav();
   renderTodayView();
 }
@@ -69,7 +65,7 @@ export function switchTab(tab) {
 export function renderTodayView() {
   const entries = getTodayEntries();
   const durations = state.allDurations.filter(d => d.date === state.selectedDate);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const isToday = state.selectedDate === today;
   const dayLabel = isToday ? 'Today' : state.selectedDate;
   document.getElementById('title-today-sessions').textContent = dayLabel + "'s Sessions";

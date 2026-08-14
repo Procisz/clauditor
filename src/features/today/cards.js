@@ -2,13 +2,14 @@
 // TODAY — summary cards (8 metrics)
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
+import { todayKey } from '../../core/dates.js';
 import { calcCost } from '../../core/config.js';
 import { domEl, domText, domClear, fmtNum, fmtDuration, makeInfoIcon, calcSessionTime } from '../../core/utils.js';
 
 const STAT_COLOR = { accent: 'text-accent', yellow: 'text-warning', orange: 'text-primary', green: 'text-success' };
 
 export function renderTodayCards(entries) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const isToday = state.selectedDate === today;
   const sessions = new Set(entries.map(e => e.sessionId));
   let totalBase = 0, totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;

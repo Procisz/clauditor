@@ -8,6 +8,8 @@
 // ─────────────────────────────────────────────
 import { state } from './state.js';
 import { openDB } from './db.js';
+import { entryKey, durationKey } from './parser.js';
+import { dayKey } from './dates.js';
 
 const ARCHIVE_KEY = 'archiveHandle';
 
@@ -65,8 +67,10 @@ function parseLines(text) {
     if (!line) continue;
     try {
       const r = JSON.parse(line);
-      if (r.kind === 'e') { const { kind: _, ...e } = r; entries.push(e); }
-      else if (r.kind === 'd') { const { kind: _, ...d } = r; durations.push(d); }
+      // The stored `date` was derived in whatever timezone wrote the archive —
+      // recompute from the timestamp so display follows the current viewer's clock
+      if (r.kind === 'e') { const { kind: _, ...e } = r; e.date = dayKey(e.ts); entries.push(e); }
+      else if (r.kind === 'd') { const { kind: _, ...d } = r; d.date = dayKey(d.ts); durations.push(d); }
     } catch { console.warn('Archive: skipping malformed line:', line.slice(0, 80)); }
   }
   return { entries, durations };
@@ -133,12 +137,12 @@ export async function writeArchive(handle) {
         const file = await fh.getFile();
         existingByteLength = file.size;
         const parsed = parseLines(await file.text());
-        for (const e of parsed.entries)   seenKeys.add(e.msgId || (e.ts + '|' + e.sessionId));
-        for (const d of parsed.durations) seenKeys.add(d.ts + '|' + d.sessionId);
+        for (const e of parsed.entries)   seenKeys.add(entryKey(e));
+        for (const d of parsed.durations) seenKeys.add(durationKey(d));
       } catch {}
 
-      const newEntries   = entries.filter(e => !seenKeys.has(e.msgId || (e.ts + '|' + e.sessionId)));
-      const newDurations = durations.filter(d => !seenKeys.has(d.ts + '|' + d.sessionId));
+      const newEntries   = entries.filter(e => !seenKeys.has(entryKey(e)));
+      const newDurations = durations.filter(d => !seenKeys.has(durationKey(d)));
       if (newEntries.length === 0 && newDurations.length === 0) continue;
 
       const lines = [
@@ -169,13 +173,13 @@ export async function selectArchiveFolder(rerenderCallback) {
       // so historical data from a prior session is not lost.
       const fromMonth = localStorage.getItem('clauditor_date_from')?.slice(0, 7) || '';
       const { entries, durations } = await readArchive(handle, fromMonth);
-      const existingIds = new Set(state.allEntries.map(e => e.msgId || (e.ts + '|' + e.sessionId)));
+      const existingIds = new Set(state.allEntries.map(entryKey));
       for (const e of entries) {
-        if (!existingIds.has(e.msgId || (e.ts + '|' + e.sessionId))) state.allEntries.push(e);
+        if (!existingIds.has(entryKey(e))) state.allEntries.push(e);
       }
-      const existingDurKeys = new Set(state.allDurations.map(d => d.ts + '|' + d.sessionId));
+      const existingDurKeys = new Set(state.allDurations.map(durationKey));
       for (const d of durations) {
-        if (!existingDurKeys.has(d.ts + '|' + d.sessionId)) state.allDurations.push(d);
+        if (!existingDurKeys.has(durationKey(d))) state.allDurations.push(d);
       }
       state.allEntries.sort((a, b) => a.ts.localeCompare(b.ts));
       await writeArchive(handle);

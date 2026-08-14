@@ -1,46 +1,108 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claude Usage Dashboard</title>
-  <script>try{var t=localStorage.getItem('clauditor_theme');document.documentElement.dataset.theme=t==='dracula'?'dracula':'winter'}catch(e){}</script>
-  <link rel="icon" type="image/png" href="data:image/png;base64,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" />
-</head>
-<body class="min-h-screen bg-base-200">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Claude Usage Dashboard</title>
+		<script>
+			try {
+				var t = localStorage.getItem("clauditor_theme");
+				document.documentElement.dataset.theme =
+					t === "dracula" ? "dracula" : "winter";
+			} catch (e) {}
+		</script>
+		<link
+			rel="icon"
+			type="image/png"
+			href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAH6ElEQVRYCb1Wa4yU5RV+vuvM7M7eZmfvC5VSdStUQtUqptXYBIxWLQ2oYGxricRq/6FUm9rAjwZ+tNZYU9pabVKraUmgAWy1UXALhYUKWEAKi2FvCLuwO7M7l2Wu36XP+WaHmb2RNDV+uzPzXs57Ls95znk/xXEdFy4+1aekTkYK/2Z5FAX6p21cTJUMlkYzuuC6UGfc+AwX/y8HZotPIbTFD4O86qNfbbd4tmiIevkUZ6QOBcRQ6eEC//efSeBQzzjOR7JYtaQet11bTdmitpK0jGZ1oFxcxioNJXM29g6mcXAojU/ieXCKKm5e79fwtfmV+PLcChiaitY6E7uPxxBNWFh5S2iyxSmzGR0oNy7xSZSHh9N45kAE/UkLiqtAY6h6lp+YhUNZG1sPRHHXtUFsengOuk4l0Fqho4OOBLRyhKZY53SaAwXj8l0oH4ejbT0JLKCyO1v9ON89Dk1VYFiAQWdMCuiUNWjnvsU1+EtXBLu6ovj52nkIV+nIW5Kq8pAmOzHNAW+bEUoyFVXFa6di2HhsFAtDPmwinDeH/fhp1ygykTz8tosN32hCFa2LoRjR2L43go2PziFCCir8or7AlclmS7NJVVCKnvVJ2LtjWfzyZAx+wniWOf9u5zDmh0wsYs4rePKFlS1wLQc9Q1ksuS6IIx8nseHbc3DgoySe+3UfxpL5kqVZRnoBbI+8BZEiWnTg9e6E1yheuj2MzR/GMETIB2N5tAV1PPFgG85cyuLlv16ClrHRdyGDJ+9vxVv7o9jWGYXC1Ow5FMPKpQ3UW1Q62QtZJUZFF+Y2aZgpRpzE2kfGO46CnX0pZLIOjNE8NEL99F0N+P3BMbzxQQxNRCQbzeGfx5Po7k0jQSd1RYXGCvngw6TnQKFUZ0qFID1R15J1yYdAL+Vlkzh1hoZkxkHnuTRSF3O4vcmP6xt8eGFPBK/sG0VH2MSP7mmEYuowdBXxhO0RsqPFj1qevXjBQuf+GHr70siyYgrNaSJQ74fWbccm5fhHD8gp/PlMktAncWuTD2tuqMaWE3HsODyGe6+pZORh/GJ3FO+fHvfKS6Gj1TScvWzDRwUGPQ/kXKx/rA3bdo1iYCBLA4DGdKxYHsKypXWoqNRAbntNTHygA47HeSKLDQcjePM0804IFSJwE6PdcFsIyZSNBuZ90zsj+Hd/GgYPhgIa7iDx2msNRJmafx1PYDxuwU9MfVkGlGMqbX6o3Uq7eOCBWtRVqRgeyuORx5ulyj0vJN0eNK99FMOb/0kQOhUdNTqqGdFJsvvJ7YM4PZjB87su4fhAGj7K30B0tnynHUu/WImg4uKOjkpsXtuONjoDcgYB4UDBCaQB0+KcjjQ1m+jcGcf+v8cnEk/bbBLu0Hge923/hPl2MZ9Kfsz+vf69EaQIp3bZgpsmAWnYoFMBHv3Vmnb841gCW/dEoVEmQExvZCs+fyGHHHNtcq5GgHYa/NxcE0f3pRAKaXjkiTCsvI3OHTGs+WErqmqZDqmCoKni/nlBeu3iwqiFZ98dRo7kq2Bawj7WPFPio6hCRxa3+xgNsLNzFEFGWa1p8CsazisPMnA0c99fHMKgCX3XPGOq9SOJwox8+7EQDAIliN0oJENTFK5BTFTcdUlTPkDD874buPZwTtkyZfAt0JBMAhYNeChF30AvyKBZsbm//Uft2oD/qHElT/6dtQf7SAk8+Wf1s8yVITvcfoGIscrg+g3/zwcBsiMcVePMLWh33wQfgAU1bmd/6UsYpGaiFVcpDZDbmISANdkVO5b/0ebblYY+SishJ1RAvu3H54rta+0yeu8J1qq49dVnzz6H4d/nMmVnEDUlfBYrbjXixAsSIoQ1wqjXJy2MqE/vhfZO3/04T+TgPU1dzTy3+r6vql9oFaxLeL3Bcq+2JeIAnCtxCCfbYb5V9rAeYAd+7ote2yqD1Iq7lbxS3LpbcvokJ4ZWocGr30l67UIXKKhXtaRPUtyP/J7ZgLYcSVavw6tP1TKs3daQOYBZ0UvuzuSxs9kTs2yhhpYXn/QHL6xBZtkzZJHs797LPhVbsuyGJzUTtrE4X8nuAaF4VEBCIvyegGmSO6Uypx0Llb+SRdQOqUaNvWTxgpUsOXwf4u1syNgcGVyAt/ub3Fw962eWc+Tr8AIXpFnPtx20futPHNWj//ZzljVWRZccGFfY3Lps02DA66bdgZ4wllTOMrM8tmzQpOn9hfWku3ats4vo5exZ+ZoqVjpJ8/diexVA1DE+Sffu0yk0XVe4Zs2CncyiZFFsmVeVMP2ZpnFvX1JNKnt8wvjzTf2F9qtf2Pe7o2j+pwsTLUvFk1q998khIvWXimni3dKp01uNnH8QiKa4xhLxYZcMpFduS7zc/9NAl5tEzqa1FtaZ+bUlFRaX/vYf6F38zv3dtXQh0IdCFQBcCXQh0IdCFQBcCXQh0IVBE4G/K3QhIRyqvOwAAAABJRU5ErkJggg=="
+		/>
+	</head>
+	<body class="min-h-screen bg-base-200">
+		<%- include('src/html/partials/header.html') %>
 
-<%- include('src/html/partials/header.html') %>
+		<main class="max-w-screen-xl mx-auto px-4 py-4">
+			<input
+				type="file"
+				id="file-input-fallback"
+				webkitdirectory
+				style="display: none"
+				onchange="loadFromFileInput(this.files)"
+			/>
+			<div
+				id="error-banner"
+				class="alert alert-error mb-4"
+				style="display: none"
+			></div>
+			<div
+				id="pricing-warning"
+				class="alert alert-warning mb-4"
+				style="display: none"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+					/>
+				</svg>
+				<span id="pricing-warning-text"></span>
+				<button
+					id="pricing-warning-close"
+					class="btn btn-ghost btn-xs btn-circle ml-auto shrink-0"
+					aria-label="Dismiss pricing warning"
+					title="Dismiss — hides this warning for one month"
+				>
+					✕
+				</button>
+			</div>
 
-<main class="max-w-screen-xl mx-auto px-4 py-4">
-  <input type="file" id="file-input-fallback" webkitdirectory style="display:none" onchange="loadFromFileInput(this.files)">
-  <div id="error-banner" class="alert alert-error mb-4" style="display:none"></div>
+			<%- include('src/html/partials/welcome.html') %>
 
-  <%- include('src/html/partials/welcome.html') %>
+			<!-- Loading -->
+			<div
+				id="loading"
+				class="flex flex-col items-center justify-center gap-4 py-20"
+				style="display: none"
+			>
+				<span class="loading loading-spinner loading-lg text-primary"></span>
+				<p id="loading-text" class="text-sm opacity-60">Reading files…</p>
+			</div>
 
-  <!-- Loading -->
-  <div id="loading" class="flex flex-col items-center justify-center gap-4 py-20" style="display:none">
-    <span class="loading loading-spinner loading-lg text-primary"></span>
-    <p id="loading-text" class="text-sm opacity-60">Reading files…</p>
-  </div>
+			<!-- Dashboard -->
+			<div id="dashboard" style="display: none">
+				<!-- Nav tabs -->
+				<div class="bg-base-100 border border-base-300 rounded-box mb-5">
+					<div class="join w-full">
+						<button
+							class="btn join-item flex-1 btn-primary"
+							data-tab="overview"
+							onclick="switchTab('overview')"
+						>
+							Overview
+						</button>
+						<button
+							class="btn join-item flex-1 btn-ghost"
+							data-tab="today"
+							onclick="switchTab('today')"
+						>
+							Today
+						</button>
+					</div>
+				</div>
 
-  <!-- Dashboard -->
-  <div id="dashboard" style="display:none">
+				<%- include('src/html/partials/overview.html') %> <%-
+				include('src/html/partials/today.html') %>
+			</div>
+			<!-- /dashboard -->
+		</main>
 
-    <!-- Nav tabs -->
-    <div class="bg-base-100 border border-base-300 rounded-box mb-5 p-1.5">
-      <div class="join w-full">
-        <button class="btn join-item flex-1 btn-primary" data-tab="overview" onclick="switchTab('overview')">Overview</button>
-        <button class="btn join-item flex-1 btn-ghost" data-tab="today" onclick="switchTab('today')">Today</button>
-      </div>
-    </div>
-
-    <%- include('src/html/partials/overview.html') %>
-    <%- include('src/html/partials/today.html') %>
-
-  </div><!-- /dashboard -->
-</main>
-
-<script type="module" src="/src/main.js"></script>
-
-</body>
+		<script type="module" src="/src/main.js"></script>
+	</body>
 </html>

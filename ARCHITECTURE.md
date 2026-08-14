@@ -38,8 +38,9 @@ flowchart LR
 Key facts:
 
 - Only JSONL lines with `type: "assistant"` and a `message.usage` field are counted ([parser.js](src/core/parser.js)).
-- Cost is always recomputed from token counts × the pricing table in [config.js](src/core/config.js) — the `costUSD` field in the logs is never trusted.
-- A configurable markup multiplier (default **×1.35**) is applied on top of the Anthropic base cost.
+- Cost is always recomputed from token counts × the pricing table in [config.js](src/core/config.js) — the `costUSD` field in the logs is never trusted. Matching is longest-pattern-first; models with no entry trigger a visible warning banner (they'd otherwise be silently priced at default rates).
+- An optional markup multiplier (default **×1** — no markup) can be applied on top of the Anthropic base cost.
+- All day/week/month bucketing happens in the **viewer's local timezone** via [dates.js](src/core/dates.js) — timestamps are UTC instants, and `date` is recomputed from `ts` at parse and archive-read time, so data recorded in any timezone displays consistently.
 - Subagent JSONL files get an `agentType` label resolved from `.meta.json` sidecars, powering the per-session agent breakdown.
 
 ## 2. Startup & folder authorization flow
@@ -78,7 +79,7 @@ flowchart TD
     h --> i["writeArchive:<br/>append only unseen entries to<br/>per-month JSONL files"]
 ```
 
-Why the dedupe matters: streaming responses write multiple partial `assistant` entries with the same message ID; keeping the max-output one prevents double counting. The archive merge relies on the same key (`msgId`, falling back to `ts|sessionId`).
+Why the dedupe matters: streaming responses write multiple partial `assistant` entries with the same message ID; keeping the max-output one prevents double counting. The identity key lives in exactly one place — `entryKey()` / `durationKey()` in [parser.js](src/core/parser.js) — and is shared by the loader dedupe, the archive's append-only writes, and the archive merge, so the three can never drift apart.
 
 ## 4. Module dependency graph
 
@@ -87,7 +88,8 @@ flowchart TD
     main["main.js<br/>entry: wires window.* handlers,<br/>resize, init"]
 
     subgraph core["src/core — infrastructure (no DOM rendering)"]
-        config["config.js<br/>PRICING, calcCost"]
+        config["config.js<br/>PRICING, calcCost,<br/>getUnknownModels"]
+        datesjs["dates.js<br/>dayKey, todayKey,<br/>week/month keys"]
         statejs["state.js<br/>shared mutable state"]
         db["db.js<br/>IndexedDB handles"]
         fsjs["fs.js<br/>JSONL walker"]
@@ -122,9 +124,10 @@ flowchart TD
     main --> today
 
     folder --> db & loader
-    loader --> fsjs & parser & archive & statejs
-    archive --> db & statejs
-    parser --> config & statejs
+    loader --> fsjs & parser & archive & statejs & config & datesjs
+    archive --> db & statejs & parser & datesjs
+    parser --> config & statejs & datesjs
+    statejs --> datesjs
 
     oIndex --> oCards & oCharts & oHeat & oTables
     oIndex --> parser & config
@@ -159,30 +162,9 @@ flowchart TD
     artifact --> browser["Distribution 1: open directly<br/>in Chrome / Edge / Arc"]
     artifact --> electron["Distribution 2: Electron<br/>electron/main.js loads it in a BrowserWindow"]
     electron --> builder["electron-builder →<br/>dmg / nsis / AppImage<br/>(output: dist-electron/)"]
-    builder --> updater["electron-updater:<br/>checks GitHub release latest.yml<br/>on launch + every 4h"]
 ```
 
-## 6. Release flow (`scripts/release.sh`)
-
-```mermaid
-flowchart TD
-    r(["npm run release<br/>(or :minor / :major / :electron)"]) --> clean{"git working<br/>tree clean?"}
-    clean -- No --> abort(["Abort"])
-    clean -- Yes --> bump["Detect semver bump from<br/>conventional commits since last tag:<br/>BREAKING→major, feat→minor, else→patch"]
-    bump --> ver["npm version (no tag) →<br/>bump package.json"]
-    ver --> build["npm run build →<br/>dist/Clauditor-v{V}.html"]
-    build --> el{"--electron flag?"}
-    el -- Yes --> pub["electron-builder --publish always<br/>(uploads installer + latest.yml,<br/>needs GH_TOKEN or gh auth)"]
-    el -- No --> notes
-    pub --> notes["Generate release notes from<br/>git log (feat/fix/perf/refactor buckets)"]
-    notes --> tag["commit 'chore: release vV [skip ci]'<br/>+ git tag + push --follow-tags"]
-    tag --> gh["gh release create/edit vV<br/>attach Clauditor-v{V}.html"]
-    gh --> done(["Release published"])
-```
-
-Requirements: clean committed tree, at least one commit since the last tag, `gh` CLI authenticated (and `GH_TOKEN` for `--electron`).
-
-## 7. Where things persist
+## 6. Where things persist
 
 | What | Where | Key |
 |---|---|---|
@@ -191,5 +173,6 @@ Requirements: clean committed tree, at least one commit since the last tag, `gh`
 | Markup multiplier | localStorage | `clauditor_markup` |
 | Monthly budget | localStorage | `clauditor_budget` |
 | Date-from filter | localStorage | `clauditor_date_from` |
+| Dismissed banners (1-month expiry per item) | localStorage | `clauditor_dismissals` |
 | Theme (winter/dracula) | localStorage | `clauditor_theme` |
 | Historical usage data | Archive folder on disk | `clauditor-archive-YYYY-MM.jsonl` |

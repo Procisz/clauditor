@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────
 import { ApexCharts, getApexBaseOpts, CHART_COLORS } from '../../core/charts.js';
 import { state } from '../../core/state.js';
+import { dayKey, todayKey, shiftDay, getMonthKey } from '../../core/dates.js';
 import { calcCost } from '../../core/config.js';
 import { domEl, domText, domClear, fmtDuration, makeInfoIcon, calcSessionTime } from '../../core/utils.js';
 
@@ -30,12 +31,9 @@ function buildDayCosts() {
 }
 
 function sparkLast14(dayCosts) {
-  const today = new Date();
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (13 - i));
-    return +(dayCosts.get(d.toISOString().slice(0, 10)) || 0).toFixed(4);
-  });
+  const today = todayKey();
+  return Array.from({ length: 14 }, (_, i) =>
+    +(dayCosts.get(shiftDay(today, -(13 - i))) || 0).toFixed(4));
 }
 
 function sparkThisMonth(dayCosts, thisMonth) {
@@ -47,19 +45,16 @@ function sparkThisMonth(dayCosts, thisMonth) {
 }
 
 function sparkLast7(dayCosts) {
-  const today = new Date();
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
-    return +(dayCosts.get(d.toISOString().slice(0, 10)) || 0).toFixed(4);
-  });
+  const today = todayKey();
+  return Array.from({ length: 7 }, (_, i) =>
+    +(dayCosts.get(shiftDay(today, -(6 - i))) || 0).toFixed(4));
 }
 
 function sparkToday(todayStr) {
   const hourCosts = new Array(24).fill(0);
   for (const e of state.allEntries) {
-    if (e.date !== todayStr || !e.ts || e.ts.length < 13) continue;
-    const h = parseInt(e.ts.slice(11, 13), 10);
+    if (e.date !== todayStr || !e.ts) continue;
+    const h = new Date(e.ts).getHours();
     if (h < 0 || h > 23 || !Number.isFinite(h)) continue;
     hourCosts[h] += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
   }
@@ -70,10 +65,9 @@ export function renderCards(entries) {
   for (const { chart } of sparklineCharts) chart.destroy();
   sparklineCharts = [];
 
-  const today     = new Date().toISOString().slice(0, 10);
-  const weekAgo   = new Date(); weekAgo.setDate(weekAgo.getDate() - 6);
-  const weekStr   = weekAgo.toISOString().slice(0, 10);
-  const thisMonth = today.slice(0, 7);
+  const today     = todayKey();
+  const weekStr   = shiftDay(today, -6);
+  const thisMonth = getMonthKey(today);
 
   let totalBase = 0, totalFinal = 0, monthBase = 0, weekBase = 0, todayBase = 0;
   const baseDayCosts = new Map();
@@ -166,7 +160,7 @@ export function renderBurnRate() {
   }
 
   const today       = new Date();
-  const thisMonth   = today.toISOString().slice(0, 7);
+  const thisMonth   = getMonthKey(todayKey());
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth  = today.getDate();
 

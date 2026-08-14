@@ -10,10 +10,7 @@
 		"preview": "vite preview",
 		"electron:dev": "npm run build && electron .",
 		"electron:build": "npm run build && electron-builder",
-		"release": "bash scripts/release.sh",
-		"release:minor": "bash scripts/release.sh minor",
-		"release:major": "bash scripts/release.sh major",
-		"release:electron": "bash scripts/release.sh --electron"
+		"check:pricing": "node scripts/check-pricing.mjs"
 	},
 	"build": {
 		"appId": "com.clauditor.app",
@@ -51,7 +48,6 @@
 		"@tailwindcss/vite": "^4.2.2",
 		"apexcharts": "^5.10.4",
 		"daisyui": "^5.5.19",
-		"electron-updater": "^6.8.3",
 		"tailwindcss": "^4.2.2"
 	}
 }

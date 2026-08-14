@@ -3,7 +3,8 @@
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
-import { getFilteredEntries, getWeekKey, getMonthKey } from '../../core/parser.js';
+import { getFilteredEntries } from '../../core/parser.js';
+import { getWeekKey, getMonthKey } from '../../core/dates.js';
 import { domEl, domCell, domClear, fmtNum, shortPath } from '../../core/utils.js';
 
 export function showDetail(bucketKey) {

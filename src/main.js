@@ -9,6 +9,7 @@ import { selectArchiveFolder, getArchiveHandle, updateArchiveButton } from './co
 import { loadAndRender, loadFromFileInput, setRenderCallback } from './core/loader.js';
 import { initTheme, toggleTheme } from './core/theme.js';
 import { getFilteredEntries } from './core/parser.js';
+import { makeInfoIcon, initDismissableNote } from './core/utils.js';
 
 // ─── Features ───────────────────────────────
 import { renderAll, setView, onMarkupChange, exportCsv } from './features/overview/index.js';
@@ -109,6 +110,14 @@ setRenderCallback(renderAll);
   initTheme();
   setupTableSorting();
   document.getElementById('app-version').textContent = 'v' + __APP_VERSION__;
+  document.getElementById('markup-info').appendChild(makeInfoIcon(
+    'Final cost = base cost × this multiplier. Base cost uses public Anthropic API pricing — '
+    + 'leave at 1 for no markup, or set higher if your provider bills a surcharge on top.'));
+  document.getElementById('budget-info').appendChild(makeInfoIcon(
+    'Tracks this month’s spend (final cost) against a budget you set. The bar fills with what '
+    + 'you’ve spent so far; the projection estimates your month-end total from your current '
+    + 'daily pace. Set the budget to 0 to turn tracking off.'));
+  initDismissableNote('estimate-note', 'note:cost-estimates');
   const savedMarkup = parseFloat(localStorage.getItem('clauditor_markup'));
   const savedBudget = parseFloat(localStorage.getItem('clauditor_budget'));
   document.getElementById('markup-input').value = savedMarkup || CONFIG_DEFAULT_MARKUP;

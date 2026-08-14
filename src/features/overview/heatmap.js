@@ -4,6 +4,7 @@
 import { ApexCharts, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
+import { dayKey } from '../../core/dates.js';
 
 let chartHeatmap = null;
 
@@ -19,13 +20,6 @@ function heatmapColors() {
     : ['#0f172a', '#1e1b4b', '#3730a3', '#6366f1', '#a5b4fc']; // indigo tints dark
 }
 
-function toLocalDateStr(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 export function renderHeatmap() {
   const el = document.getElementById('chart-heatmap');
   if (!el) return;
@@ -39,8 +33,7 @@ export function renderHeatmap() {
       cache_creation_input_tokens: e.cacheWrite,
       cache_read_input_tokens: e.cacheRead,
     }, e.model) * state.markup;
-    const localDate = e.ts ? toLocalDateStr(new Date(e.ts)) : e.date;
-    dayCosts.set(localDate, (dayCosts.get(localDate) || 0) + cost);
+    dayCosts.set(e.date, (dayCosts.get(e.date) || 0) + cost);
   }
   const maxCost = Math.max(...dayCosts.values(), 0.001);
 
@@ -64,9 +57,9 @@ export function renderHeatmap() {
     data: weekMondays.map(monday => {
       const day = new Date(monday);
       day.setDate(day.getDate() + d); // d=0 → Mon, d=6 → Sun
-      const x = toLocalDateStr(monday); // shared column key = week's Monday
+      const x = dayKey(monday); // shared column key = week's Monday
       if (day > today) return { x, y: 0, date: null, cost: 0 };
-      const dateStr = toLocalDateStr(day);
+      const dateStr = dayKey(day);
       const cost = dayCosts.get(dateStr) || 0;
       const intensity = cost > 0 ? Math.ceil((cost / maxCost) * 4) : 0;
       return { x, y: intensity, date: dateStr, cost };

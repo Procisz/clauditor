@@ -2,33 +2,37 @@
 // LOADER — orchestrates file reading and triggers render
 // ─────────────────────────────────────────────
 import { collectJsonlFiles, readJsonlFile } from './fs.js';
-import { parseEntries, parseDurations } from './parser.js';
+import { parseEntries, parseDurations, entryKey } from './parser.js';
 import { state } from './state.js';
-import { showLoading, setLoadingText, hideLoading, showDashboard, showError, hideError } from './utils.js';
+import { showLoading, setLoadingText, hideLoading, showDashboard, showError, hideError, updatePricingWarning } from './utils.js';
 import { getArchiveHandle, readArchive, writeArchive } from './archive.js';
+import { todayKey, shiftDay } from './dates.js';
+import { getUnknownModels } from './config.js';
 
 let _renderCallback = null;
 export function setRenderCallback(fn) { _renderCallback = fn; }
 
 function finishLoading(showRefresh) {
   // Deduplicate by message ID; keep entry with highest output token count
+  // (streaming writes partial snapshots of the same message — the max-output
+  // one is the final version)
   const msgMap = new Map();
   for (const e of state.allEntries) {
-    const key = e.msgId || (e.ts + '|' + e.sessionId);
+    const key = entryKey(e);
     const existing = msgMap.get(key);
     if (!existing || e.output >= existing.output) msgMap.set(key, e);
   }
   state.allEntries = [...msgMap.values()];
   state.allEntries.sort((a, b) => a.ts.localeCompare(b.ts));
 
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  updatePricingWarning(getUnknownModels(state.allEntries.map(e => e.model)));
+
+  const todayStr = todayKey();
   const savedFrom = localStorage.getItem('clauditor_date_from');
   if (savedFrom) {
     document.getElementById('date-from').value = savedFrom;
   } else {
-    const from = new Date(today); from.setDate(from.getDate() - 29);
-    document.getElementById('date-from').value = from.toISOString().slice(0, 10);
+    document.getElementById('date-from').value = shiftDay(todayStr, -29);
   }
   document.getElementById('date-to').value = todayStr;
   document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();

@@ -6,6 +6,7 @@ import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
 import { shortPath } from '../../core/utils.js';
 import { getCurrentBucketKey } from '../../core/parser.js';
+import { todayKey, getMonthKey } from '../../core/dates.js';
 import { showDetail } from './detail.js';
 
 let chartCost       = null;
@@ -158,7 +159,7 @@ export function renderTreemap(entries) {
 
 export function renderCumulativeSpend() {
   const today       = new Date();
-  const thisMonth   = today.toISOString().slice(0, 7);
+  const thisMonth   = getMonthKey(todayKey());
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth  = today.getDate();
 

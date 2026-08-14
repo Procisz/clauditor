@@ -3,6 +3,15 @@
 // ─────────────────────────────────────────────
 import { calcCost } from './config.js';
 import { state } from './state.js';
+import { dayKey, todayKey, getWeekKey, getMonthKey } from './dates.js';
+
+// Identity keys shared by the loader dedupe and the archive's append-only
+// writes. Streaming writes multiple partial entries per message ID, and the
+// archive re-reads entries that may still exist in live files — every "have
+// I seen this record" check MUST go through these two functions so the three
+// call sites (loader dedupe, archive write, archive merge) can never drift.
+export function entryKey(e)    { return e.msgId || (e.ts + '|' + e.sessionId); }
+export function durationKey(d) { return d.ts + '|' + d.sessionId; }
 
 export function parseEntries(records, agentType = 'main') {
   const entries = [];
@@ -12,7 +21,7 @@ export function parseEntries(records, agentType = 'main') {
     if (!usage) continue;
     entries.push({
       ts:         r.timestamp || '',
-      date:       (r.timestamp || '').slice(0, 10),
+      date:       dayKey(r.timestamp || ''),
       model:      r.message?.model || 'unknown',
       sessionId:  r.sessionId || '',
       cwd:        r.cwd || '',
@@ -35,7 +44,7 @@ export function parseDurations(records) {
     if (!r.durationMs) continue;
     durations.push({
       ts:        r.timestamp || '',
-      date:      (r.timestamp || '').slice(0, 10),
+      date:      dayKey(r.timestamp || ''),
       sessionId: r.sessionId || '',
       cwd:       r.cwd || '',
       durationMs: r.durationMs,
@@ -55,19 +64,8 @@ export function getFilteredEntries() {
   });
 }
 
-export function getWeekKey(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  const day = date.getUTCDay(); // 0=Sun
-  const diff = d - day + (day === 0 ? -6 : 1); // Mon
-  const mon = new Date(Date.UTC(y, m - 1, diff));
-  return mon.toISOString().slice(0, 10);
-}
-
-export function getMonthKey(dateStr) { return dateStr.slice(0, 7); }
-
 export function getCurrentBucketKey() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   if (state.view === 'daily')  return today;
   if (state.view === 'weekly') return getWeekKey(today);
   return getMonthKey(today);
@@ -101,7 +99,7 @@ export function bucketEntries(entries) {
   const from = inputBucketKey && inputBucketKey < keys[0] ? inputBucketKey : keys[0];
   const to = curKey > keys[keys.length - 1] ? curKey : keys[keys.length - 1];
   const filledSet = new Set();
-  // Use UTC dates with explicit day suffix for monthly keys to avoid timezone/invalid-date issues
+  // Iteration is pure calendar math on day strings — UTC internals are safe here
   const toDateStr = v => state.view === 'monthly' ? v + '-01' : v;
   let cur = new Date(toDateStr(from) + 'T00:00:00Z');
   const end = new Date(toDateStr(to) + 'T00:00:00Z');

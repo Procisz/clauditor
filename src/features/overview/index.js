@@ -2,7 +2,7 @@
 // OVERVIEW — orchestrator: renderAll, setView, exportCsv
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { calcCost, CONFIG_DEFAULT_MARKUP } from '../../core/config.js';
 import { getFilteredEntries, bucketEntries } from '../../core/parser.js';
 import { renderCards, renderBurnRate } from './cards.js';
 import { renderCostChart, renderTokenChart, renderCacheChart, renderTreemap, renderCumulativeSpend } from './charts.js';
@@ -26,7 +26,7 @@ function renderViewDependentCharts() {
 }
 
 export function renderAll() {
-  state.markup = Math.max(0, parseFloat(document.getElementById('markup-input').value) || 1.35);
+  state.markup = Math.max(0, parseFloat(document.getElementById('markup-input').value) || CONFIG_DEFAULT_MARKUP);
   localStorage.setItem('clauditor_markup', state.markup);
   const dateFrom = document.getElementById('date-from').value;
   if (dateFrom) localStorage.setItem('clauditor_date_from', dateFrom);

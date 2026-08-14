@@ -4,6 +4,24 @@ All notable changes to Clauditor are documented here.
 
 ## [Unreleased]
 
+### ✨ New Features
+- Warning banner when logs contain models missing from the pricing table (previously priced silently at default rates); dismissable per model, suppressing for one month — after that (or for a newly appearing unknown model) it warns again
+- Cost-estimate disclaimer note is dismissable too (same one-month suppression)
+- Pricing table updated from current Anthropic rates; adds fable-5/mythos ($10/$50) and corrects opus-4.0/4.1 ($15/$75)
+- Longest-pattern-first pricing match — insertion order can no longer shadow a specific model entry
+- `npm run check:pricing` sanity check for the pricing table
+
+### 🐛 Bug Fixes
+- All day/week/month bucketing now uses the viewer's local timezone (was a mix of UTC and local; evening entries landed on the wrong day in UTC+ zones)
+- Archived entries recompute their day from the timestamp on read, making archives portable across timezones
+- Today-card hourly sparkline used the UTC hour while the hourly chart used local
+
+### ♻️ Refactoring
+- Extract shared `entryKey()`/`durationKey()` — loader dedupe and archive writes can no longer drift apart
+- New `core/dates.js` as the single source of truth for date bucketing
+- Remove release tooling, auto-updater, and stray root files (repo is no longer published)
+- Remove AzTech branding from the markup label; default markup multiplier is now ×1 (no markup)
+
 ---
 
 ## [1.12.1] — 2026-08-12

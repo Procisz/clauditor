@@ -3,16 +3,17 @@
 
   <!-- Markup config -->
   <div class="flex items-center gap-4 mb-5 text-sm flex-wrap">
-    <span>AzTech markup multiplier:</span>
+    <span class="flex items-center gap-1.5">Markup multiplier: <span id="markup-info" class="flex items-center"></span></span>
     <label class="flex items-center gap-2">
       <input type="number" id="markup-input" step="0.01" min="1" class="input input-border input-sm w-24" onchange="onMarkupChange()" />
       <span class="opacity-60">× base cost</span>
     </label>
     <span class="ml-auto text-xs opacity-40" id="last-updated"></span>
   </div>
-  <div class="flex items-center gap-2 text-xs mb-5" style="background:color-mix(in oklch,var(--color-warning)12%,transparent);border:1px solid color-mix(in oklch,var(--color-warning)35%,transparent);border-radius:0.5rem;padding:0.4rem 0.75rem;color:var(--color-base-content);opacity:0.8;">
+  <div id="estimate-note" class="flex items-center gap-2 text-xs mb-5" style="background:color-mix(in oklch,var(--color-warning)12%,transparent);border:1px solid color-mix(in oklch,var(--color-warning)35%,transparent);border-radius:0.5rem;padding:0.4rem 0.75rem;color:var(--color-base-content);opacity:0.8;">
     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;color:var(--color-warning);opacity:1;"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 10.5h-1.5v-5h1.5v5zm0-6.5h-1.5V3.5h1.5V5z"/></svg>
     Costs are estimates based on public Anthropic pricing — actual charges may differ.
+    <button class="note-close btn btn-ghost btn-xs btn-circle ml-auto shrink-0" aria-label="Dismiss note" title="Dismiss — hides this note for one month">✕</button>
   </div>
 
   <!-- Summary cards -->
@@ -22,9 +23,9 @@
   <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
     <div class="card-body p-4 gap-3">
       <div class="flex items-center justify-between flex-wrap gap-2">
-        <h3 class="card-title text-base">Monthly Budget</h3>
+        <h3 class="card-title text-base">Monthly Budget <span id="budget-info" class="flex items-center"></span></h3>
         <label class="flex items-center gap-2 text-sm opacity-70">
-          Budget $<input type="number" id="budget-input" min="0" step="10" placeholder="0 = off"
+          Budget $<input type="number" id="budget-input" min="0" step="10" value="0" title="0 = budget tracking off"
             class="input input-border input-sm w-24"
             oninput="renderBurnRate()" />
         </label>

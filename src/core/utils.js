@@ -15,6 +15,78 @@ export function showDashboard()   { document.getElementById('dashboard').style.d
 export function showError(msg)    { const el = document.getElementById('error-banner'); el.style.display = 'flex'; el.textContent = msg; }
 export function hideError()       { document.getElementById('error-banner').style.display = 'none'; }
 
+// ─── Dismissal store ─────────────────────────
+// Shared by every dismissable warning/error banner. Closing a banner
+// suppresses it for ONE MONTH, tracked independently per key — after the
+// month it warns again. Keys are namespaced per banner type (e.g.
+// 'pricing:<model>'); any new dismissable warning or error should reuse
+// dismissForAMonth()/readDismissals() with its own namespace prefix.
+const DISMISSALS_KEY = 'clauditor_dismissals';   // { "<key>": <expiryEpochMs> }
+const LEGACY_DISMISSED_MODELS_KEY = 'clauditor_dismissed_models';
+
+function monthFromNow() { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.getTime(); }
+
+function writeDismissals(map) {
+  try { localStorage.setItem(DISMISSALS_KEY, JSON.stringify(map)); } catch {}
+}
+
+function readDismissals() {
+  let map = {};
+  try { map = JSON.parse(localStorage.getItem(DISMISSALS_KEY)) || {}; } catch {}
+  // Migrate the short-lived dismissed-forever array format to 1-month entries
+  try {
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_DISMISSED_MODELS_KEY));
+    if (Array.isArray(legacy)) {
+      for (const m of legacy) { if (!(('pricing:' + m) in map)) map['pricing:' + m] = monthFromNow(); }
+      localStorage.removeItem(LEGACY_DISMISSED_MODELS_KEY);
+      writeDismissals(map);
+    }
+  } catch {}
+  // Prune expired entries so suppression ends and the store can't grow forever
+  const now = Date.now();
+  let changed = false;
+  for (const [k, exp] of Object.entries(map)) {
+    if (!(exp > now)) { delete map[k]; changed = true; }
+  }
+  if (changed) writeDismissals(map);
+  return map;
+}
+
+export function dismissForAMonth(keys) {
+  const map = readDismissals();
+  for (const k of [].concat(keys)) map[k] = monthFromNow();
+  writeDismissals(map);
+}
+
+// Wire a static always-rendered note (with a .note-close button inside) to the
+// dismissal store: hidden while its key is suppressed, ✕ dismisses for a month
+export function initDismissableNote(elId, key) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (key in readDismissals()) { el.style.display = 'none'; return; }
+  const btn = el.querySelector('.note-close');
+  if (btn) btn.onclick = () => { dismissForAMonth(key); el.style.display = 'none'; };
+}
+
+// ─── Pricing warning banner ──────────────────
+// Shown after load when entries reference models missing from the PRICING
+// table — their costs are computed at default (sonnet) rates and likely wrong.
+export function updatePricingWarning(unknownModels) {
+  const el = document.getElementById('pricing-warning');
+  if (!el) return;
+  const dismissals = readDismissals();
+  const toShow = (unknownModels || []).filter(m => !(('pricing:' + m) in dismissals));
+  if (toShow.length === 0) { el.style.display = 'none'; return; }
+  document.getElementById('pricing-warning-text').textContent =
+    'Unknown model pricing: ' + toShow.join(', ')
+    + ' — costs for these are estimated at default rates. Add entries in src/core/config.js.';
+  document.getElementById('pricing-warning-close').onclick = () => {
+    dismissForAMonth(toShow.map(m => 'pricing:' + m));
+    el.style.display = 'none';
+  };
+  el.style.display = 'flex';
+}
+
 export function fmtDuration(ms) {
   if (ms <= 0) return '—';
   if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
