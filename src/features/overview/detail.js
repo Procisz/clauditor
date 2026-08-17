@@ -5,7 +5,7 @@ import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
 import { getFilteredEntries } from '../../core/parser.js';
 import { getWeekKey, getMonthKey } from '../../core/dates.js';
-import { domEl, domCell, domClear, fmtNum, shortPath } from '../../core/utils.js';
+import { domEl, domCell, domClear, fmtNum, fmtMoney, shortPath, sessionName } from '../../core/utils.js';
 
 export function showDetail(bucketKey) {
   // Match entries to this bucket
@@ -45,16 +45,17 @@ export function showDetail(bucketKey) {
   } else {
     for (const [sid, d] of rows) {
       const tr = domEl('tr');
-      const slugCell = domCell('mono', d.slug || sid.slice(0, 8));
-      slugCell.title = sid;
+      const nm = sessionName(sid === '(unknown)' ? '' : sid, d.slug);
+      const slugCell = domCell('mono session-name', nm);
+      slugCell.title = nm + '\n' + sid;
       tr.appendChild(slugCell);
       tr.appendChild(domCell('mono', shortPath(d.cwd || '—')));
       tr.appendChild(domCell('num', fmtNum(d.calls)));
       tr.appendChild(domCell('num', fmtNum(d.input)));
       tr.appendChild(domCell('num', fmtNum(d.output)));
       tr.appendChild(domCell('num', fmtNum(d.cacheRead)));
-      tr.appendChild(domCell('num', '$' + d.base.toFixed(4)));
-      tr.appendChild(domCell('num', '$' + (d.base * state.markup).toFixed(4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
       tbody.appendChild(tr);
     }
   }

@@ -11,7 +11,7 @@ export function showLoading(msg) {
 }
 export function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
 export function hideLoading()     { document.getElementById('loading').style.display = 'none'; }
-export function showDashboard()   { document.getElementById('dashboard').style.display = 'block'; }
+export function showDashboard()   { document.getElementById('welcome').style.display = 'none'; document.getElementById('dashboard').style.display = 'block'; }
 export function showError(msg)    { const el = document.getElementById('error-banner'); el.style.display = 'flex'; el.textContent = msg; }
 export function hideError()       { document.getElementById('error-banner').style.display = 'none'; }
 
@@ -68,6 +68,19 @@ export function initDismissableNote(elId, key) {
   if (btn) btn.onclick = () => { dismissForAMonth(key); el.style.display = 'none'; };
 }
 
+// ─── Cowork-missing warning banner ───────────
+// Deliberately NOT wired to the one-month dismissal store: per product
+// decision this warning re-appears on every dashboard presentation while no
+// Cowork data is loaded — ✕ only hides it until the next present.
+export function updateCoworkWarning() {
+  const el = document.getElementById('cowork-warning');
+  if (!el) return;
+  const hasCowork = !!(state.srcCowork && state.srcCowork.entries.length > 0);
+  el.style.display = hasCowork ? 'none' : 'flex';
+  const btn = document.getElementById('cowork-warning-close');
+  if (btn) btn.onclick = () => { el.style.display = 'none'; };
+}
+
 // ─── Pricing warning banner ──────────────────
 // Shown after load when entries reference models missing from the PRICING
 // table — their costs are computed at default (sonnet) rates and likely wrong.
@@ -87,14 +100,32 @@ export function updatePricingWarning(unknownModels) {
   el.style.display = 'flex';
 }
 
+// ─── Number formatting ───────────────────────
+// Every user-visible number goes through these; the separators are
+// configurable (persisted via main.js) and default to "1,234.56".
+// Chart series data and CSV exports stay raw — machine formats.
+export function fmtFixed(v, decimals = 0) {
+  const neg = v < 0;
+  const [int, frac] = Math.abs(v).toFixed(decimals).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, state.thousandsSep);
+  return (neg ? '-' : '') + grouped + (frac !== undefined ? state.decimalSep + frac : '');
+}
+export function fmtMoney(v, decimals = 4) { return '$' + fmtFixed(v, decimals); }
+export function fmtInt(n) { return fmtFixed(n, 0); }
+
+// Human-readable duration: the two most significant units, zero remainders
+// dropped. Calendar-ish approximations: 1w = 7d, 1mo = 30d, 1y = 365d.
 export function fmtDuration(ms) {
   if (ms <= 0) return '—';
-  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  if (h > 0) return h + 'h ' + m + 'm';
-  const s = Math.round((ms % 60000) / 1000);
-  return m + 'm ' + s + 's';
+  if (ms < 60000) return fmtFixed(ms / 1000, 1) + 's';
+  const MIN = 60000, H = 3600000, D = 24 * H, W = 7 * D, MO = 30 * D, Y = 365 * D;
+  const two = (v1, u1, v2, u2) => v2 > 0 ? `${v1}${u1} ${v2}${u2}` : `${v1}${u1}`;
+  if (ms < H)  return two(Math.floor(ms / MIN), 'm', Math.round((ms % MIN) / 1000), 's');
+  if (ms < D)  return two(Math.floor(ms / H), 'h', Math.floor((ms % H) / MIN), 'm');
+  if (ms < W)  return two(Math.floor(ms / D), 'd', Math.floor((ms % D) / H), 'h');
+  if (ms < MO) return two(Math.floor(ms / W), 'w', Math.floor((ms % W) / D), 'd');
+  if (ms < Y)  return two(Math.floor(ms / MO), 'mo', Math.floor((ms % MO) / D), 'd');
+  return two(Math.floor(ms / Y), 'y', Math.floor((ms % Y) / MO), 'mo');
 }
 
 export function calcSessionTime(entries) {
@@ -113,15 +144,82 @@ export function calcSessionTime(entries) {
 }
 
 export function fmtNum(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  if (n >= 1_000_000) return fmtFixed(n / 1_000_000, 1) + 'M';
+  if (n >= 1_000)     return fmtFixed(n / 1_000, 1) + 'K';
   return String(n);
+}
+
+// Display name for a session: user-facing title (the Desktop sidebar name,
+// from custom-title records) → auto-generated slug → session id prefix
+export function sessionName(sid, slug) {
+  return state.sessionTitles.get(sid) || slug || (sid ? sid.slice(0, 8) : '(unknown)');
+}
+
+// ─── Project identity ────────────────────────
+// Code sessions group by working directory; every Cowork task is its own
+// project (its internal cwd points into the app's store and is meaningless).
+export function projectKey(e) {
+  if (e.sessionKind === 'cowork') return 'cowork:' + (e.sessionId || '(unknown)');
+  return e.cwd || '(unknown)';
+}
+
+export function projectName(key) {
+  if (key.startsWith('cowork:')) return sessionName(key.slice(7), '');
+  if (key === '(unknown)') return '(unknown)';
+  const parts = key.replace(/[/\\]+$/, '').split(/[/\\]/);
+  return parts[parts.length - 1] || key;
 }
 
 export function shortPath(p) {
   const home = p.match(/^\/[^/]+\/[^/]+/) || p.match(/^[A-Z]:\\Users\\[^\\]+/);
   if (home) return p.replace(home[0], '~');
   return p.length > 60 ? '…' + p.slice(-60) : p;
+}
+
+// ─── Shared Material-style paginator ─────────
+// p is a mutable {pageSize, pageIndex} state object; rerender is called after
+// every interaction. Callers clamp pageIndex before slicing their rows.
+export const PAGE_SIZES = [5, 10, 25, 50, 100];
+
+export function buildPaginator(p, total, rerender) {
+  const maxPage = Math.max(0, Math.ceil(total / p.pageSize) - 1);
+  const start = p.pageIndex * p.pageSize;
+  const pager = domEl('div', 'model-paginator flex items-center justify-end flex-wrap gap-x-4 gap-y-1 text-xs pt-2');
+  pager.appendChild(domText('span', 'opacity-60', 'Rows per page:'));
+  const sel = domEl('select', 'select select-xs w-18');
+  sel.setAttribute('aria-label', 'Rows per page');
+  for (const n of PAGE_SIZES) {
+    const o = domEl('option');
+    o.value = String(n);
+    o.textContent = String(n);
+    if (n === p.pageSize) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => {
+    const firstItem = p.pageIndex * p.pageSize;
+    p.pageSize = parseInt(sel.value, 10);
+    p.pageIndex = Math.floor(firstItem / p.pageSize);  // keep the first visible item visible
+    rerender();
+  };
+  pager.appendChild(sel);
+  pager.appendChild(domText('span', 'opacity-60',
+    total === 0 ? '0 of 0' : `${start + 1}–${Math.min(start + p.pageSize, total)} of ${total}`));
+  const nav = domEl('div', 'flex items-center');
+  const mkNav = (txt, label, disabled, page) => {
+    const b = domEl('button', 'btn btn-ghost btn-xs btn-square');
+    b.textContent = txt;
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.disabled = disabled;
+    b.onclick = () => { p.pageIndex = page; rerender(); };
+    return b;
+  };
+  nav.appendChild(mkNav('«', 'First page',    p.pageIndex === 0,      0));
+  nav.appendChild(mkNav('‹', 'Previous page', p.pageIndex === 0,      p.pageIndex - 1));
+  nav.appendChild(mkNav('›', 'Next page',     p.pageIndex >= maxPage, p.pageIndex + 1));
+  nav.appendChild(mkNav('»', 'Last page',     p.pageIndex >= maxPage, maxPage));
+  pager.appendChild(nav);
+  return pager;
 }
 
 // DOM helpers — safe by construction, no innerHTML needed
@@ -192,7 +290,9 @@ export function applySortHeaders(tableId) {
   const dir = state.tableSortDirs[tableId] || -1;
   const table = document.getElementById(tableId);
   if (!table) return;
-  const ths = table.querySelectorAll('thead th');
+  // :scope > thead — expansion panels nest their own sortable tables inside
+  // tbody; a bare 'thead th' selector would match those headers too
+  const ths = table.querySelectorAll(':scope > thead th');
   const sortCol = state.tableSortCols[tableId] !== undefined ? state.tableSortCols[tableId] : ths.length - 1;
   ths.forEach((th, i) => {
     th.classList.remove('sort-asc', 'sort-desc');

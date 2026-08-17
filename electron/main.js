@@ -1,7 +1,36 @@
-const { app, BrowserWindow, dialog, Menu, nativeImage } = require('electron')
+const { app, BrowserWindow, dialog, Menu, nativeImage, ipcMain } = require('electron')
 const path = require('path')
+const os = require('os')
+const fs = require('fs/promises')
 
 const appIcon = nativeImage.createFromPath(path.join(__dirname, '../assets/clauditor-icon.png'))
+
+// ─── Read-only filesystem bridge, restricted to the two Claude data roots ───
+const CLAUDE_PROJECTS = path.join(os.homedir(), '.claude', 'projects')
+const COWORK_STORE = path.join(app.getPath('appData'), 'Claude', 'local-agent-mode-sessions')
+const ROOTS = [CLAUDE_PROJECTS, COWORK_STORE]
+
+function assertAllowed(p) {
+  const r = path.resolve(p)
+  if (!ROOTS.some(root => r === root || r.startsWith(root + path.sep))) {
+    throw new Error('Path outside allowed data roots')
+  }
+  return r
+}
+
+ipcMain.handle('clauditor:paths', () => ({ projects: CLAUDE_PROJECTS, cowork: COWORK_STORE }))
+ipcMain.handle('clauditor:list', async (_e, dirPath) => {
+  const items = await fs.readdir(assertAllowed(dirPath), { withFileTypes: true })
+  return items.map(d => ({ name: d.name, dir: d.isDirectory() }))
+})
+ipcMain.handle('clauditor:read', async (_e, filePath) => {
+  try {
+    return await fs.readFile(assertAllowed(filePath), 'utf8')
+  } catch (e) {
+    if (e.code === 'ENOENT') return null  // probing for optional sidecar files is normal
+    throw e
+  }
+})
 
 let win = null
 
@@ -14,6 +43,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
     },
   })
 

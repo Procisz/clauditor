@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
-import { domEl, domCell, domClear, fmtNum, shortPath, applySortHeaders } from '../../core/utils.js';
+import { domEl, domCell, domClear, fmtNum, shortPath, applySortHeaders, fmtMoney } from '../../core/utils.js';
 
 export function renderTodayProjectsTable(entries) {
   const map = new Map();
@@ -30,8 +30,8 @@ export function renderTodayProjectsTable(entries) {
       tr.appendChild(domCell('mono', shortPath(cwd)));
       tr.appendChild(domCell('num', String(d.sessions.size)));
       tr.appendChild(domCell('num', fmtNum(d.calls)));
-      tr.appendChild(domCell('num', '$' + d.base.toFixed(4)));
-      tr.appendChild(domCell('num', '$' + (d.base * state.markup).toFixed(4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
       tbody.appendChild(tr);
     }
   }

@@ -1,5 +1,5 @@
 <!-- Welcome -->
-<div id="welcome" class="flex flex-col items-center gap-5 py-14 max-w-sm mx-auto">
+<div id="welcome" class="flex flex-col items-center gap-5 py-14 max-w-md mx-auto">
 
   <!-- Brand -->
   <div class="flex flex-col items-center gap-3 text-center">
@@ -31,34 +31,70 @@
 
       <!-- Fresh select state -->
       <div id="fresh-select-box" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2.5">
+        <div class="flex flex-col gap-2">
           <p class="text-sm font-semibold">How to get started</p>
-          <ol class="flex flex-col gap-2 text-sm text-base-content/65">
-            <li class="flex items-start gap-2.5">
-              <span class="badge badge-primary badge-sm shrink-0 mt-0.5">1</span>
-              Click <strong class="text-base-content font-medium mx-1">Select Folder</strong> below
-            </li>
-            <li class="flex items-start gap-2.5">
-              <span class="badge badge-primary badge-sm shrink-0 mt-0.5">2</span>
-              Navigate to your <code class="font-mono text-xs bg-base-200 px-1.5 py-0.5 rounded mx-1">.claude/projects</code> folder
-            </li>
-          </ol>
+          <p class="text-sm text-base-content/65">
+            Claude keeps its usage logs in two separate places on your machine. Browse each source
+            you want to include, then open the dashboard. You can start with just one —
+            regular Chats have no local usage data and can never be counted.
+          </p>
         </div>
 
-        <!-- Paths -->
-        <div class="bg-base-200 rounded-box p-3 flex flex-col gap-1.5">
-          <div class="flex items-baseline gap-2 font-mono text-xs">
-            <span class="text-base-content/40 shrink-0 w-20">macOS/Linux</span>
-            <span class="text-primary">~/.claude/projects</span>
+        <!-- Source 1: Claude Code -->
+        <div class="rounded-box border border-base-300 bg-base-200/50 p-4 flex flex-col gap-2.5">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-info badge-sm">Code</span>
+            <span class="text-sm font-semibold">Claude Code sessions</span>
           </div>
-          <div class="border-t border-base-300 my-0.5"></div>
-          <div class="flex items-baseline gap-2 font-mono text-xs">
-            <span class="text-base-content/40 shrink-0 w-20">Windows</span>
-            <span class="text-primary">%USERPROFILE%\.claude\projects</span>
+          <p class="text-xs text-base-content/60">
+            Every Claude Code session — the terminal CLI and the Desktop app's Code tab.
+            This is the main data source.
+          </p>
+          <div class="bg-base-200 rounded-box p-2.5 flex flex-col gap-1.5">
+            <div class="flex items-baseline gap-2 font-mono text-xs">
+              <span class="text-base-content/40 shrink-0 w-20">macOS/Linux</span>
+              <span class="text-primary">~/.claude/projects</span>
+            </div>
+            <div class="border-t border-base-300 my-0.5"></div>
+            <div class="flex items-baseline gap-2 font-mono text-xs">
+              <span class="text-base-content/40 shrink-0 w-20">Windows</span>
+              <span class="text-primary">%USERPROFILE%\.claude\projects</span>
+            </div>
           </div>
+          <button class="btn btn-primary btn-sm w-full" onclick="browseCodeFolder()">Browse Claude Code folder</button>
+          <div id="status-code" class="text-xs mt-1" style="display:none"></div>
         </div>
 
-        <button class="btn btn-primary w-full" onclick="selectFolder()">Select Folder</button>
+        <!-- Source 2: Cowork -->
+        <div class="rounded-box border border-base-300 bg-base-200/50 p-4 flex flex-col gap-2.5">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-accent badge-sm">Cowork</span>
+            <span class="text-sm font-semibold">Cowork tasks <span class="font-normal opacity-50">(optional)</span></span>
+          </div>
+          <p class="text-xs text-base-content/60">
+            Tasks run from the Desktop app's Home tab. They are stored separately from Claude Code
+            logs, in the app's own data folder — press <kbd class="kbd kbd-xs">⌘⇧G</kbd> in the
+            dialog and paste the path below. The browser cannot remember this folder
+            (it lives under <code class="font-mono">~/Library</code>), so re-browse it to pull in
+            new tasks; with an archive set, loaded history is kept automatically.
+          </p>
+          <div class="bg-base-200 rounded-box p-2.5 flex flex-col gap-1.5">
+            <div class="flex items-baseline gap-2 font-mono text-xs">
+              <span class="text-base-content/40 shrink-0 w-20">macOS</span>
+              <span class="text-primary" style="word-break:break-all">~/Library/Application Support/Claude/local-agent-mode-sessions</span>
+            </div>
+            <div class="border-t border-base-300 my-0.5"></div>
+            <div class="flex items-baseline gap-2 font-mono text-xs">
+              <span class="text-base-content/40 shrink-0 w-20">Windows</span>
+              <span class="text-primary" style="word-break:break-all">%APPDATA%\Claude\local-agent-mode-sessions</span>
+            </div>
+          </div>
+          <input type="file" id="cowork-input" webkitdirectory multiple style="display:none" onchange="onCoworkPicked(this.files)" />
+          <button class="btn btn-secondary btn-sm w-full" onclick="browseCoworkFolder()">Browse Cowork folder</button>
+          <div id="status-cowork" class="text-xs mt-1" style="display:none"></div>
+        </div>
+
+        <button class="btn btn-primary w-full" id="btn-open-dashboard" disabled onclick="openDashboard()">Open Dashboard</button>
       </div>
 
     </div>

@@ -2,16 +2,29 @@
 
 All notable changes to Clauditor are documented here.
 
-## [Unreleased]
+## [2.0.0] — 2026-08-17
 
 ### ✨ New Features
+- Settings popup (gear icon in the header) hosting the markup multiplier, the number-format separators, and the last-updated timestamp — removed from the Overview toolbar
+- Configurable number formatting: thousands and decimal separator settings (defaults `,` / `.`, persisted in localStorage); every displayed number — cards, tables, panels, modal, chart axes/tooltips, statuses — formats accordingly (chart series data and CSV export stay machine-formatted)
+- Model Breakdown rows expand into a per-model session explorer: sortable session list (three-state headers, default: start date, newest first), pagination (5/10/25/50/100 per page, default 5), and a click-through session detail modal (stat cards, token distribution bar, per-model/per-agent breakdown, timeline)
+- Sessions display their real names everywhere (explorer, modal, Today tab, drill-down panel): the title Claude Desktop shows in its sidebar (from `custom-title` records; renames follow), falling back to the auto-generated slug, then the id prefix; titles are persisted in the archive (`kind:'t'` lines) so they survive log pruning
+- Type and Source columns in the session explorer and modal: Type is Chat / Cowork / Code (from each entry's data source), Source is Desktop app vs CLI (from the log `entrypoint` field); archives written before this release are backfilled with the entrypoint on the next archive write, while the live logs still carry it
+- Cowork data source: loads the Desktop app's `local-agent-mode-sessions` store — both the `local_<taskId>/audit.jsonl` signed transcript and the task's full private Claude Code tree (`local_<taskId>/.claude/projects/**`, which also holds subagent sidechains and turn durations the audit lacks; entries dedupe by message id) plus `local_<taskId>.json` titles. Cowork tasks never write `~/.claude/projects`, which is why they were invisible; one task = one session row, typed Cowork, titled like the app's Home tab
+- Redesigned start page: the two data sources (Claude Code, Cowork) are browsed independently with green/red status feedback, and the dashboard opens only via an explicit **Open Dashboard** button (enabled once either source is loaded); the header's Select Folder / Add Cowork buttons are replaced by a single **Data Sources** button returning to this page
+- Electron desktop app now auto-loads both data sources natively (read-only preload bridge restricted to the two data roots): no pickers, no permission prompts, no welcome screen — and Refresh re-reads everything; recommended over the browser for Cowork users, since Chrome cannot remember folders under `~/Library`
 - Warning banner when logs contain models missing from the pricing table (previously priced silently at default rates); dismissable per model, suppressing for one month — after that (or for a newly appearing unknown model) it warns again
 - Cost-estimate disclaimer note is dismissable too (same one-month suppression)
+- Warning banner whenever the dashboard is shown without Cowork data (numbers cover Code sessions only), with a shortcut to Data Sources; dismissable but never suppressed — it returns on every load until Cowork data is added
 - Pricing table updated from current Anthropic rates; adds fable-5/mythos ($10/$50) and corrects opus-4.0/4.1 ($15/$75)
 - Longest-pattern-first pricing match — insertion order can no longer shadow a specific model entry
+- Model Breakdown table sortable by every column (three-state headers: ascending → descending → neutral; neutral = the default highest-final-cost-first order)
+- Top Projects table: 20-row cap removed — all projects listed with the shared paginator (default 10 per page) and every column sortable, same three-state pattern, default highest final cost first (treemap keeps top 20); the whole section now ignores the date filter (always all time) and sits directly below Model Breakdown
+- Project rows expand into the same session explorer as Model Breakdown (sortable, paginated, session modal on click); projects display names instead of paths — folder basename for Code, task title for Cowork (each Cowork task is one project, unifying its audit- and tree-sourced entries that previously split between an `(unknown)` row and an unreadable store path)
 - `npm run check:pricing` sanity check for the pricing table
 
 ### 🐛 Bug Fixes
+- No default date range: the dashboard now shows all history out of the box (previous builds silently applied a 30-day "from" filter and persisted it as if user-chosen; a one-time reset clears that stored value); the Model Breakdown hint shows "all time" alongside the filtered count whenever a range hides sessions
 - All day/week/month bucketing now uses the viewer's local timezone (was a mix of UTC and local; evening entries landed on the wrong day in UTC+ zones)
 - Archived entries recompute their day from the timestamp on read, making archives portable across timezones
 - Today-card hourly sparkline used the UTC hour while the hourly chart used local

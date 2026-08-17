@@ -4,6 +4,7 @@
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
+import { fmtMoney, fmtInt } from '../../core/utils.js';
 
 let chartTodayModel      = null;
 let chartTodayTokens     = null;
@@ -69,7 +70,7 @@ export function renderTodayModelPie(entries) {
     series,
     labels,
     colors:     CHART_COLORS.slice(0, Math.max(labels.length, 1)),
-    tooltip:    { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(6) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 6) } },
     dataLabels: { enabled: false },
     legend:     { ...base.legend, position: 'bottom' },
     plotOptions: { pie: { donut: { size: '65%' } } },
@@ -88,7 +89,7 @@ export function renderTodayTokenPie(entries) {
     series:     [inp, out, cw, cr],
     labels:     ['Input', 'Output', 'Cache Write', 'Cache Read'],
     colors:     [CHART_COLORS[0], CHART_COLORS[1], CHART_COLORS[2], CHART_COLORS[4]],
-    tooltip:    { ...base.tooltip, y: { formatter: v => v.toLocaleString() + ' tokens' } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtInt(v) + ' tokens' } },
     dataLabels: { enabled: false },
     legend:     { ...base.legend, position: 'bottom' },
     plotOptions: { pie: { donut: { size: '65%' } } },
@@ -115,7 +116,7 @@ export function renderTodayHourlyChart(entries) {
     theme:      base.theme,
     grid:       base.grid,
     dataLabels: base.dataLabels,
-    tooltip:    { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(6) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 6) } },
     series:     [{ name: 'Cost ($)', data }],
     colors:     [CHART_COLORS[0]],
     fill: {
@@ -124,7 +125,7 @@ export function renderTodayHourlyChart(entries) {
     },
     stroke:  { curve: 'smooth', width: 2 },
     xaxis:   { ...base.xaxis, categories: labels, tickAmount: 8 },
-    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => '$' + v.toFixed(2) } },
+    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => fmtMoney(v, 2) } },
     legend:  { show: false },
     noData:  base.noData,
   });
@@ -267,8 +268,8 @@ export function renderTodayCumulativeCost(entries) {
     stroke:     { curve: 'stepline', width: 2 },
     fill:       { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 100] } },
     xaxis:      { ...base.xaxis, type: 'datetime', labels: { ...base.xaxis.labels, datetimeUTC: false, format: 'HH:mm' } },
-    yaxis:      { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => '$' + v.toFixed(4) } },
-    tooltip:    { ...base.tooltip, x: { format: 'HH:mm:ss' }, y: { formatter: v => '$' + v.toFixed(6) } },
+    yaxis:      { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => fmtMoney(v, 4) } },
+    tooltip:    { ...base.tooltip, x: { format: 'HH:mm:ss' }, y: { formatter: v => fmtMoney(v, 6) } },
     legend:     { show: false },
     noData:     base.noData,
   });
@@ -301,7 +302,7 @@ export function renderCallsScatter(entries) {
       tickAmount: 12,
       labels: { style: { colors: tick, fontSize: '11px' }, formatter: v => String(Math.floor(v)).padStart(2, '0') + ':00' },
     },
-    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => '$' + v.toFixed(4) } },
+    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => fmtMoney(v, 4) } },
     tooltip: {
       ...base.tooltip,
       custom: ({ seriesIndex, dataPointIndex, w }) => {
@@ -311,7 +312,7 @@ export function renderCallsScatter(entries) {
         const m = String(Math.round((d.x - h) * 60)).padStart(2, '0');
         return `<div style="padding:8px 12px;font-size:12px">
           <div style="font-weight:600;margin-bottom:4px">${String(h).padStart(2,'0')}:${m}</div>
-          <div>Cost: $${d.y.toFixed(6)}</div>
+          <div>Cost: ${fmtMoney(d.y, 6)}</div>
           <div style="opacity:.55;margin-top:2px">~${d.z * 500} output tokens</div>
         </div>`;
       },

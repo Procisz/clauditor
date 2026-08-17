@@ -28,6 +28,8 @@ export function parseEntries(records, agentType = 'main') {
       slug:       r.slug || '',
       msgId:      r.message?.id || '',
       agentType,
+      entrypoint: r.entrypoint || '',
+      sessionKind: 'code',
       input:      usage.input_tokens || 0,
       output:     usage.output_tokens || 0,
       cacheWrite: usage.cache_creation_input_tokens || 0,
@@ -35,6 +37,19 @@ export function parseEntries(records, agentType = 'main') {
     });
   }
   return entries;
+}
+
+// Session titles: Claude Desktop (and newer CLI builds) periodically write
+// {type:'custom-title', customTitle, sessionId} records — the same names the
+// Desktop sidebar shows. The record is re-stamped over time, so last one wins.
+export function parseSessionTitles(records) {
+  const titles = new Map();
+  for (const r of records) {
+    if (r.type !== 'custom-title') continue;
+    if (!r.customTitle || !r.sessionId) continue;
+    titles.set(r.sessionId, r.customTitle);
+  }
+  return titles;
 }
 
 export function parseDurations(records) {
@@ -51,6 +66,52 @@ export function parseDurations(records) {
     });
   }
   return durations;
+}
+
+// Cowork audit.jsonl transcripts (Desktop app local-agent-mode-sessions).
+// Same assistant/usage shape as Claude Code logs, but session ids are
+// snake_case and per-command — all records of a task are grouped under the
+// task's own id so one Cowork task = one session row.
+export function parseCoworkEntries(records, taskId) {
+  const entries = [];
+  for (const r of records) {
+    if (r.type !== 'assistant') continue;
+    const usage = r.message?.usage;
+    if (!usage) continue;
+    entries.push({
+      ts:         r.timestamp || '',
+      date:       dayKey(r.timestamp || ''),
+      model:      r.message?.model || 'unknown',
+      sessionId:  taskId,
+      cwd:        '',
+      slug:       '',
+      msgId:      r.message?.id || '',
+      agentType:  'main',
+      entrypoint: 'claude-desktop',
+      sessionKind: 'cowork',
+      input:      usage.input_tokens || 0,
+      output:     usage.output_tokens || 0,
+      cacheWrite: usage.cache_creation_input_tokens || 0,
+      cacheRead:  usage.cache_read_input_tokens || 0,
+    });
+  }
+  return entries;
+}
+
+// Session taxonomy. Type: 'Chat' | 'Cowork' | 'Code' — what kind of Claude
+// session produced the logs. ~/.claude/projects holds only Claude Code
+// sessions; Cowork tasks live in the Desktop app's local-agent-mode-sessions
+// store (loaded via cowork.js, entries tagged sessionKind:'cowork'); Chat
+// conversations are server-side only and have no local data.
+export function sessionType(kind) {
+  return kind === 'cowork' ? 'Cowork' : 'Code';
+}
+
+// Source: 'Desktop app' | 'CLI' — where the Code session ran. Desktop Code-tab
+// sessions stamp entrypoint:'claude-desktop' on every record; terminal
+// sessions stamp 'cli' or (in older CLI versions) nothing at all.
+export function sessionOrigin(entrypoint) {
+  return (entrypoint || '').toLowerCase() === 'claude-desktop' ? 'Desktop app' : 'CLI';
 }
 
 export function getFilteredEntries() {

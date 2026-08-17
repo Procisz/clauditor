@@ -4,7 +4,7 @@
 import { state } from '../../core/state.js';
 import { todayKey } from '../../core/dates.js';
 import { calcCost } from '../../core/config.js';
-import { domEl, domText, domClear, fmtNum, fmtDuration, makeInfoIcon, calcSessionTime } from '../../core/utils.js';
+import { domEl, domText, domClear, fmtNum, fmtDuration, makeInfoIcon, calcSessionTime, fmtMoney, fmtFixed } from '../../core/utils.js';
 
 const STAT_COLOR = { accent: 'text-accent', yellow: 'text-warning', orange: 'text-primary', green: 'text-success' };
 
@@ -22,8 +22,8 @@ export function renderTodayCards(entries) {
   }
   const finalCost = totalBase * state.markup;
   const cacheHitPct = (totalInput + totalCacheWrite + totalCacheRead) > 0
-    ? ((totalCacheRead / (totalInput + totalCacheWrite + totalCacheRead)) * 100).toFixed(1)
-    : '0.0';
+    ? fmtFixed((totalCacheRead / (totalInput + totalCacheWrite + totalCacheRead)) * 100, 1)
+    : fmtFixed(0, 1);
 
   const todayDurations = state.allDurations.filter(d => d.date === state.selectedDate);
   const avgDurationMs = todayDurations.length > 0
@@ -35,15 +35,15 @@ export function renderTodayCards(entries) {
   const sessionTimeMs = calcSessionTime(entries);
 
   const cards = [
-    { label: (isToday ? "Today's" : state.selectedDate) + ' Final Cost', value: '$' + finalCost.toFixed(4), cls: finalCost > 0 ? 'orange' : '', sub: 'incl. markup' },
-    { label: 'Base Cost',          value: '$' + totalBase.toFixed(4),    cls: '',       sub: 'Anthropic pricing' },
+    { label: (isToday ? "Today's" : state.selectedDate) + ' Final Cost', value: fmtMoney(finalCost, 4), cls: finalCost > 0 ? 'orange' : '', sub: 'incl. markup' },
+    { label: 'Base Cost',          value: fmtMoney(totalBase, 4),    cls: '',       sub: 'Anthropic pricing' },
     { label: 'Sessions',           value: String(sessions.size),          cls: 'accent', sub: 'unique sessions' },
     { label: 'Session Time',       value: fmtDuration(sessionTimeMs),    cls: 'yellow', sub: 'wall-clock worked', tooltip: 'Sum of each session\'s span: last message timestamp minus first message timestamp. Includes time you spent reading and thinking, not just Claude\'s processing time.' },
     { label: 'API Calls',          value: fmtNum(entries.length),         cls: '',       sub: 'assistant turns' },
     { label: 'Input Tokens',       value: fmtNum(totalInput),             cls: '',       sub: 'fresh input' },
     { label: 'Cache Hit Rate',     value: cacheHitPct + '%',              cls: 'green',  sub: 'tokens from cache' },
     { label: 'Avg Response Time',  value: fmtDuration(avgDurationMs),     cls: '',       sub: 'per turn' },
-    { label: 'Avg Cost / Turn',    value: avgCostPerTurn > 0 ? '$' + avgCostPerTurn.toFixed(4) : '—', cls: '', sub: 'incl. markup' },
+    { label: 'Avg Cost / Turn',    value: avgCostPerTurn > 0 ? fmtMoney(avgCostPerTurn, 4) : '—', cls: '', sub: 'incl. markup' },
   ];
 
   const container = document.getElementById('today-cards');

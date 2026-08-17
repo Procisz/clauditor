@@ -20,6 +20,9 @@ export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = 
   }
 
   for (const [name, entry] of dirEntries) {
+    // Cowork audit transcripts use a different record format and are loaded
+    // via cowork.js — parsing them as Claude Code logs would double-count
+    if (name === 'audit.jsonl') continue;
     if (entry.kind === 'file' && name.endsWith('.jsonl')) {
       const agentType = isSubagentsDir ? (metaMap[name.replace('.jsonl', '')] || 'agent') : 'main';
       files.push({ handle: entry, agentType });

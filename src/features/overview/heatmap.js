@@ -2,6 +2,7 @@
 // OVERVIEW — activity heatmap (ApexCharts, 52-week GitHub-style)
 // ─────────────────────────────────────────────
 import { ApexCharts, getApexBaseOpts } from '../../core/charts.js';
+import { fmtMoney } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
 import { dayKey } from '../../core/dates.js';
@@ -127,7 +128,7 @@ export function renderHeatmap() {
         if (!d?.date) return `<div style="padding:6px 10px;font-size:12px;opacity:.5">No data</div>`;
         return `<div style="padding:8px 12px;font-size:12px">
           <div style="font-weight:600;margin-bottom:3px">${d.date}</div>
-          <div>${d.cost > 0 ? '$' + d.cost.toFixed(4) : 'No activity'}</div>
+          <div>${d.cost > 0 ? fmtMoney(d.cost, 4) : 'No activity'}</div>
         </div>`;
       },
     },

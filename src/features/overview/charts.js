@@ -4,7 +4,7 @@
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
-import { shortPath } from '../../core/utils.js';
+import { projectKey, projectName, fmtMoney, fmtInt, fmtFixed } from '../../core/utils.js';
 import { getCurrentBucketKey } from '../../core/parser.js';
 import { todayKey, getMonthKey } from '../../core/dates.js';
 import { showDetail } from './detail.js';
@@ -62,11 +62,11 @@ export function renderCostChart(labels, data) {
     theme:      base.theme,
     grid:       base.grid,
     dataLabels: base.dataLabels,
-    tooltip:    { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(4) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 4) } },
     series:     [{ name: 'Cost ($)', data: finalCosts }],
     colors:     [({ dataPointIndex }) => dataPointIndex === curIdx ? '#fbbf24' : '#818cf8'],
     xaxis:      { ...base.xaxis, categories: labels, tickAmount: 12 },
-    yaxis:      { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => '$' + v.toFixed(2) } },
+    yaxis:      { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => fmtMoney(v, 2) } },
     plotOptions: { bar: { borderRadius: 3, columnWidth: '70%' } },
     legend:     { show: false },
     states:     { active: { filter: { type: 'darken', value: 0.8 } } },
@@ -85,7 +85,7 @@ export function renderTokenChart(labels, data) {
     theme:      base.theme,
     grid:       base.grid,
     dataLabels: base.dataLabels,
-    tooltip:    { ...base.tooltip, y: { formatter: v => v.toLocaleString() + ' tokens' } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtInt(v) + ' tokens' } },
     series: [
       { name: 'Input',       data: inp, color: CHART_COLORS[0] },
       { name: 'Output',      data: out, color: CHART_COLORS[1] },
@@ -93,7 +93,7 @@ export function renderTokenChart(labels, data) {
       { name: 'Cache Read',  data: cr,  color: CHART_COLORS[4] },
     ],
     xaxis:       { ...base.xaxis, categories: labels, tickAmount: 12 },
-    yaxis:       { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v } },
+    yaxis:       { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => v >= 1e6 ? fmtFixed(v/1e6, 1)+'M' : v >= 1e3 ? fmtFixed(v/1e3, 0)+'K' : v } },
     plotOptions: { bar: { borderRadius: 0, columnWidth: '70%' } },
     legend:      { ...base.legend, position: 'top' },
   });
@@ -111,7 +111,7 @@ export function renderCacheChart(labels, data) {
     theme:      base.theme,
     grid:       base.grid,
     dataLabels: base.dataLabels,
-    tooltip:    { ...base.tooltip, y: { formatter: v => v.toFixed(1) + '%' } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtFixed(v, 1) + '%' } },
     series: [
       { name: 'Fresh Input %', data: freshPct, color: CHART_COLORS[3] },
       { name: 'Cache Write %', data: writePct, color: CHART_COLORS[2] },
@@ -127,7 +127,7 @@ export function renderCacheChart(labels, data) {
 export function renderTreemap(entries) {
   const map = new Map();
   for (const e of entries) {
-    const key  = shortPath(e.cwd || '(unknown)');
+    const key  = projectName(projectKey(e));
     const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
     map.set(key, (map.get(key) || 0) + cost);
   }
@@ -148,10 +148,10 @@ export function renderTreemap(entries) {
     dataLabels: {
       enabled: true,
       style:   { fontSize: '11px', fontFamily: 'inherit', colors: ['#fff'] },
-      formatter: (text, op) => [text, '$' + op.value.toFixed(2)],
+      formatter: (text, op) => [text, fmtMoney(op.value, 2)],
     },
     plotOptions: { treemap: { enableShades: true, shadeIntensity: 0.25 } },
-    tooltip:    { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(4) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 4) } },
     legend:     { show: false },
     noData:     base.noData,
   });
@@ -206,8 +206,8 @@ export function renderCumulativeSpend() {
       tickAmount: Math.min(dayOfMonth, 10),
       labels:     { style: { colors: tick, fontSize: '11px' }, formatter: v => 'D' + Math.floor(v) },
     },
-    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => '$' + v.toFixed(0) } },
-    tooltip: { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(4) } },
+    yaxis:   { ...base.yaxis, labels: { ...base.yaxis.labels, formatter: v => fmtMoney(v, 0) } },
+    tooltip: { ...base.tooltip, y: { formatter: v => fmtMoney(v, 4) } },
     legend:  { ...base.legend, position: 'top' },
     noData:  base.noData,
   });

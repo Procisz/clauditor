@@ -4,7 +4,7 @@
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
-import { domEl, domText, domCell, domClear, fmtNum, fmtDuration, shortPath, badgeClass, shortModelName, applySortHeaders } from '../../core/utils.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, applySortHeaders } from '../../core/utils.js';
 
 // Palette ordered so consecutive indices are ≥63° apart on the hue wheel,
 // minimising the chance that two agents sharing nearby hash values look similar.
@@ -89,8 +89,12 @@ export function renderTodaySessionsTable(entries) {
       const hasSubagents = agentTypes.size > 1 || !agentTypes.has('main');
       const tr = domEl('tr');
 
-      const slugCell = domCell('mono', d.slug || sid.slice(0, 8));
-      slugCell.title = sid;
+      // Name goes in an inner ellipsized span so a long title can't clip the
+      // agents-toggle badge appended next to it
+      const nm = sessionName(sid === '(unknown)' ? '' : sid, d.slug);
+      const slugCell = domEl('td', 'mono');
+      slugCell.appendChild(domText('span', 'session-name', nm));
+      slugCell.title = nm + '\n' + sid;
       if (hasSubagents) {
         const subCount = agentTypes.size - (agentTypes.has('main') ? 1 : 0);
         const badge = domEl('span', 'btn btn-xs btn-outline ml-1.5');
@@ -116,8 +120,8 @@ export function renderTodaySessionsTable(entries) {
       tr.appendChild(domCell('num', fmtNum(d.input)));
       tr.appendChild(domCell('num', fmtNum(d.output)));
       tr.appendChild(domCell('num', fmtNum(d.cacheRead)));
-      tr.appendChild(domCell('num', '$' + d.base.toFixed(4)));
-      tr.appendChild(domCell('num', '$' + (d.base * state.markup).toFixed(4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
       tbody.appendChild(tr);
     }
   }
@@ -126,11 +130,27 @@ export function renderTodaySessionsTable(entries) {
 export function toggleSessionBreakdown(sid, d, parentTr) {
   if (activeBreakdowns.has(sid)) {
     const { detailTr, chart } = activeBreakdowns.get(sid);
-    if (chart) chart.destroy();
-    detailTr.remove();
     activeBreakdowns.delete(sid);
     const badge = parentTr.querySelector('[data-role="agents-toggle"]');
     if (badge) badge.textContent = badge.textContent.replace('▾', '▸');
+    // Animate shut, then clean up
+    const wrap = detailTr.querySelector('.expand-wrap');
+    const cleanup = (() => {
+      let fired = false;
+      return () => {
+        if (fired) return;
+        fired = true;
+        if (chart) chart.destroy();
+        detailTr.remove();
+      };
+    })();
+    if (wrap) {
+      wrap.classList.remove('expand-open');
+      wrap.addEventListener('transitionend', cleanup, { once: true });
+      setTimeout(cleanup, 320);
+    } else {
+      cleanup();
+    }
     return;
   }
 
@@ -180,7 +200,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     mTd.appendChild(mBadge); btr.appendChild(mTd);
     btr.appendChild(domCell('num', String(b.calls)));
     btr.appendChild(domCell('num', fmtNum(b.output)));
-    btr.appendChild(domCell('num', '$' + (b.base * state.markup).toFixed(4)));
+    btr.appendChild(domCell('num', fmtMoney(b.base * state.markup, 4)));
     tbdy.appendChild(btr);
   }
   tbl.appendChild(tbdy);
@@ -190,9 +210,16 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
   // ── Right: donut chart ──
   const chartWrap = domEl('div', 'breakdown-chart');
   inner.appendChild(chartWrap);
-  td.appendChild(inner);
+  const wrap = domEl('div', 'expand-wrap');
+  const wrapContent = domEl('div', 'expand-content');
+  wrapContent.appendChild(inner);
+  wrap.appendChild(wrapContent);
+  td.appendChild(wrap);
   detailTr.appendChild(td);
   parentTr.insertAdjacentElement('afterend', detailTr);
+  const openNow = () => wrap.classList.add('expand-open');
+  requestAnimationFrame(() => requestAnimationFrame(openNow));
+  setTimeout(openNow, 80);  // rAF is throttled in hidden tabs
 
   const agentTotals = new Map();
   for (const b of bRows) agentTotals.set(b.agentType, (agentTotals.get(b.agentType) || 0) + b.base * state.markup);
@@ -204,7 +231,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     series:     labels.map(l => agentTotals.get(l)),
     labels,
     colors:     labels.map(l => sessionChartColor(l)),
-    tooltip:    { ...base.tooltip, y: { formatter: v => '$' + v.toFixed(4) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 4) } },
     dataLabels: { enabled: false },
     legend:     { show: false },
     plotOptions: { pie: { donut: { size: '60%' } } },

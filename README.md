@@ -16,8 +16,11 @@ A single-file HTML dashboard that visualises your Claude Code token usage and co
 - **Cost over time chart** — single bar per period showing final cost; click any bar to drill into session breakdown
 - **Token breakdown chart** — stacked bar showing input, output, cache write, cache read
 - **Model breakdown** — calls, tokens, and cost per model; entries from models missing a pricing entry trigger a visible warning banner instead of silently using wrong rates
-- **Project breakdown** — top 20 projects grouped by working directory
-- **Daily / weekly / monthly** view toggle with custom date range filter — the "from" date is persisted across sessions; "to" always resets to today; the current (in-progress) period is highlighted in gold across all three charts
+- **Per-model session explorer** — click any model row to expand its sessions: a sortable list (three-state headers: ascending / descending / neutral; default order is start date, newest first) with Material-style pagination (5/10/25/50/100 rows per page, default 5); Type (Chat / Cowork / Code) and Source (Desktop app / CLI) columns say what each session is and where it ran; clicking a session opens a detail modal with stat cards, token distribution, per-model and per-agent breakdowns, and timeline info
+- **Cowork task usage** — Cowork tasks ("Tasks" in the Desktop app) never write `~/.claude/projects`; their transcripts live in the app's own store. Click **Add Cowork** and select `~/Library/Application Support/Claude/local-agent-mode-sessions` (press Cmd+Shift+G in the dialog and paste the path) — each task appears as one session, with its Desktop title, typed **Cowork**. Chrome forbids remembering folders under `~/Library`, so this uses a one-shot picker; with an archive folder set, loaded Cowork usage is archived and persists across visits — re-add only to pull in new task activity. (Chats remain invisible: they are server-side only and keep no local usage data)
+- **Real session names** — sessions are labeled with the same titles the Claude Desktop sidebar shows (read from the logs' `custom-title` records), falling back to the generated slug or id prefix; titles are archived so they outlive log pruning
+- **Project breakdown** — all projects listed by name (folder basename for Code work; each Cowork task is its own project, named by its task title), always all time (the section ignores the date filter), paginated (default 10 per page) with every column sortable (three-state headers, default: highest final cost first); rows expand into the same per-project session explorer as Model Breakdown, sessions open the same detail modal; the treemap above it visualizes the top 20
+- **Daily / weekly / monthly** view toggle with custom date range filter — by default no range is applied (all history is shown); a "from" date you set is persisted across sessions, "to" always resets to today; the current (in-progress) period is highlighted in gold across all three charts
 - **Local-timezone bucketing** — all days, weeks, and months are computed in your local timezone, so a late-evening session lands on the day you actually worked, regardless of where the logs were recorded
 - **Day navigator** — browse any past day in the Today tab using prev/next arrows or a date picker; Next/Today controls disable when already on today's date
 - **Expandable subagent breakdown** — sessions that used subagents show a clickable **▶ N agents** badge; expanding it reveals a per-agent table (type, model, calls, output tokens, cost) and a donut chart splitting cost by agent
@@ -27,14 +30,18 @@ A single-file HTML dashboard that visualises your Claude Code token usage and co
 
 ## Getting Started
 
+**Desktop app (recommended)** — `npm install && npm run electron:build` and install from `dist-electron/`. The app reads `~/.claude/projects` *and* the Cowork store natively: no folder pickers, no permission prompts, everything appears on launch and Refresh re-reads both.
+
+**Browser (single file):**
+
 1. **Build `Clauditor.html`** — run `npm install && npm run build`; the single file appears at `dist/Clauditor.html`
 2. Open `Clauditor.html` in Chrome, Arc, Edge, or Safari
-3. Click **Select Folder** and navigate to your `.claude/projects` directory:
-   - macOS / Linux: `~/.claude/projects`
-   - Windows: `%USERPROFILE%\.claude\projects`
+3. The start page lists the two data sources — browse the ones you want:
+   - **Claude Code sessions** (`~/.claude/projects`, Windows `%USERPROFILE%\.claude\projects`) — the main source
+   - **Cowork tasks** (`~/Library/Application Support/Claude/local-agent-mode-sessions`, Windows `%APPDATA%\Claude\local-agent-mode-sessions`) — optional; on macOS press `Cmd+Shift+G` in the dialog and paste the path
    > **macOS tip:** The `.claude` folder is hidden by default in Finder. Press `Cmd+Shift+.` to toggle hidden folders visible before selecting it.
-4. The dashboard loads instantly — your folder choice is remembered for next time (Chrome/Edge/Arc only)
-5. On subsequent opens the folder is re-authorized automatically; if the browser forgets permission, a **Re-authorize Folder** button appears
+4. Each successful browse shows a green status; click **Open Dashboard** when ready
+5. The Code folder choice is remembered for next time (Chrome/Edge/Arc only) and re-authorized automatically; the Cowork folder cannot be remembered by the browser (see above) — re-browse it via **Data Sources** to pull in new tasks
 
 ## Development
 

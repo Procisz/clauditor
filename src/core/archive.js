@@ -2,7 +2,9 @@
 // ARCHIVE — optional on-disk snapshot to survive Claude Code log pruning.
 // Format: one append-only JSONL file per calendar month:
 //   clauditor-archive-YYYY-MM.jsonl
-// Each line is {kind:'e',...entryFields} or {kind:'d',...durationFields}.
+// Each line is {kind:'e',...entryFields}, {kind:'d',...durationFields} or
+// {kind:'t', sessionId, title} (session display titles; last line wins so
+// renames simply append).
 // Reads skip months outside the active date-from filter, so loading stays
 // fast even as the archive grows over years.
 // ─────────────────────────────────────────────
@@ -61,7 +63,7 @@ async function ensurePermission(handle) {
 }
 
 function parseLines(text) {
-  const entries = [], durations = [];
+  const entries = [], durations = [], titles = [];
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
@@ -71,9 +73,10 @@ function parseLines(text) {
       // recompute from the timestamp so display follows the current viewer's clock
       if (r.kind === 'e') { const { kind: _, ...e } = r; e.date = dayKey(e.ts); entries.push(e); }
       else if (r.kind === 'd') { const { kind: _, ...d } = r; d.date = dayKey(d.ts); durations.push(d); }
+      else if (r.kind === 't') { if (r.sessionId && r.title) titles.push([r.sessionId, r.title]); }
     } catch { console.warn('Archive: skipping malformed line:', line.slice(0, 80)); }
   }
-  return { entries, durations };
+  return { entries, durations, titles };
 }
 
 // Returns the sorted list of YYYY-MM strings that have archive files in the folder.
@@ -91,28 +94,30 @@ async function readMonthFile(handle, ym) {
     const fh = await handle.getFileHandle(monthFileName(ym));
     return parseLines(await (await fh.getFile()).text());
   } catch {
-    return { entries: [], durations: [] };
+    return { entries: [], durations: [], titles: [] };
   }
 }
 
 // Read archive months that fall within [fromMonth, ∞).
 // fromMonth is YYYY-MM or '' (read all).
 export async function readArchive(handle, fromMonth = '') {
-  if (!handle) return { entries: [], durations: [] };
+  if (!handle) return { entries: [], durations: [], titles: new Map() };
   try {
-    if (!await ensurePermission(handle)) return { entries: [], durations: [] };
+    if (!await ensurePermission(handle)) return { entries: [], durations: [], titles: new Map() };
     const months = await listArchiveMonths(handle);
     const relevant = fromMonth ? months.filter(m => m >= fromMonth) : months;
     const allEntries = [], allDurations = [];
+    const allTitles = new Map();  // later lines/months win, so renames stick
     for (const ym of relevant) {
-      const { entries, durations } = await readMonthFile(handle, ym);
+      const { entries, durations, titles } = await readMonthFile(handle, ym);
       allEntries.push(...entries);
       allDurations.push(...durations);
+      for (const [sid, t] of titles) allTitles.set(sid, t);
     }
-    return { entries: allEntries, durations: allDurations };
+    return { entries: allEntries, durations: allDurations, titles: allTitles };
   } catch (e) {
     console.warn('Archive read failed:', e);
-    return { entries: [], durations: [] };
+    return { entries: [], durations: [], titles: new Map() };
   }
 }
 
@@ -131,23 +136,50 @@ export async function writeArchive(handle) {
     for (const [ym, { entries, durations }] of byMonth) {
       // Read existing month file once — derive both the dedup key set and byte length
       const seenKeys = new Set();
+      // Keys whose archived copy predates the entrypoint field. While the live
+      // JSONL still exists we re-append an enriched line for them (the loader's
+      // keep-later-on-tie dedupe prefers it on read); after Claude Code prunes
+      // the live log the information is unrecoverable, so write-side is the
+      // only place this backfill can happen.
+      const missingEntrypoint = new Set();
+      const lastArchivedTitle = new Map();  // sid → last 't' line's title in this month file
       let existingByteLength = 0;
       try {
         const fh = await handle.getFileHandle(monthFileName(ym));
         const file = await fh.getFile();
         existingByteLength = file.size;
         const parsed = parseLines(await file.text());
-        for (const e of parsed.entries)   seenKeys.add(entryKey(e));
+        for (const e of parsed.entries) {
+          const k = entryKey(e);
+          seenKeys.add(k);
+          if (e.entrypoint === undefined) missingEntrypoint.add(k);
+          else missingEntrypoint.delete(k);  // an enriched line already exists later in the file
+        }
         for (const d of parsed.durations) seenKeys.add(durationKey(d));
+        // Track only the LAST archived title per sid (matching read-side
+        // last-line-wins) — set-membership dedupe would silently drop a
+        // rename back to a previously used title
+        for (const [sid, t] of parsed.titles) lastArchivedTitle.set(sid, t);
       } catch {}
 
-      const newEntries   = entries.filter(e => !seenKeys.has(entryKey(e)));
+      const newEntries = entries.filter(e => {
+        const k = entryKey(e);
+        return !seenKeys.has(k) || (e.entrypoint && missingEntrypoint.has(k));
+      });
       const newDurations = durations.filter(d => !seenKeys.has(durationKey(d)));
-      if (newEntries.length === 0 && newDurations.length === 0) continue;
+      // Titles for sessions active this month that differ from the last
+      // archived line — renames (including back to an old name) append a new
+      // line and last-line-wins on read
+      const monthSids = new Set(entries.map(e => e.sessionId).filter(Boolean));
+      const newTitles = [...monthSids]
+        .map(sid => [sid, state.sessionTitles.get(sid)])
+        .filter(([sid, t]) => t && lastArchivedTitle.get(sid) !== t);
+      if (newEntries.length === 0 && newDurations.length === 0 && newTitles.length === 0) continue;
 
       const lines = [
         ...newEntries.map(e   => JSON.stringify({ kind: 'e', ...e })),
         ...newDurations.map(d => JSON.stringify({ kind: 'd', ...d })),
+        ...newTitles.map(([sessionId, title]) => JSON.stringify({ kind: 't', sessionId, title })),
       ].join('\n') + '\n';
 
       const fileHandle = await handle.getFileHandle(monthFileName(ym), { create: true });
@@ -168,22 +200,33 @@ export async function selectArchiveFolder(rerenderCallback) {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     await saveArchiveHandle(handle);
     updateArchiveButton(handle.name);
-    if (state.allEntries.length > 0) {
-      // Merge any existing archive entries into current state before writing,
-      // so historical data from a prior session is not lost.
+    if (state.srcCode || state.srcCowork) {
+      // Merge any existing archive entries into the code source before
+      // writing, so historical data from a prior session is not lost.
+      const src = state.srcCode || (state.srcCode = { entries: [], durations: [], titles: new Map(), liveSids: new Set() });
       const fromMonth = localStorage.getItem('clauditor_date_from')?.slice(0, 7) || '';
-      const { entries, durations } = await readArchive(handle, fromMonth);
+      const { entries, durations, titles } = await readArchive(handle, fromMonth);
+      // The selected archive's titles win over anything that did NOT come from
+      // live logs (e.g. titles carried over from a previously selected archive)
+      // — otherwise a stale cross-archive title would be re-appended here and
+      // permanently shadow this archive's newer rename
+      for (const [sid, t] of titles) {
+        if (!src.liveSids.has(sid) && !(state.srcCowork && state.srcCowork.titles.has(sid))) src.titles.set(sid, t);
+      }
       const existingIds = new Set(state.allEntries.map(entryKey));
-      for (const e of entries) {
-        if (!existingIds.has(entryKey(e))) state.allEntries.push(e);
+      // Collapse duplicate keys within the archive first (the entrypoint
+      // backfill appends enriched copies of pre-existing lines) — keep the
+      // last occurrence, matching the presenter's keep-later-on-tie dedupe
+      const byKey = new Map();
+      for (const e of entries) byKey.set(entryKey(e), e);
+      for (const e of byKey.values()) {
+        if (!existingIds.has(entryKey(e))) src.entries.push(e);
       }
-      const existingDurKeys = new Set(state.allDurations.map(durationKey));
+      const existingDurKeys = new Set(src.durations.map(durationKey));
       for (const d of durations) {
-        if (!existingDurKeys.has(durationKey(d))) state.allDurations.push(d);
+        if (!existingDurKeys.has(durationKey(d))) src.durations.push(d);
       }
-      state.allEntries.sort((a, b) => a.ts.localeCompare(b.ts));
-      await writeArchive(handle);
-      rerenderCallback?.();
+      rerenderCallback?.();  // main.js passes presentDashboard — reassembles + writes archive
     }
   } catch (e) {
     if (e.name !== 'AbortError') console.error('Archive folder error:', e);

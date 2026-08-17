@@ -3,9 +3,21 @@
 // ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { calcCost } from '../../core/config.js';
-import { domEl, domText, domCell, domClear, fmtNum, shortPath, badgeClass, applySortHeaders } from '../../core/utils.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtInt, badgeClass, applySortHeaders, buildPaginator, projectKey, projectName } from '../../core/utils.js';
+import { getModelPanel, isModelPanelOpen, buildModelSessionsRow, getProjectPanel, isProjectPanelOpen, buildProjectSessionsRow, collapsePanelRow } from './model-sessions.js';
 
 export function renderModelTable(entries) {
+  const totalEl = document.getElementById('model-sessions-total');
+  if (totalEl) {
+    const inRange = new Set(entries.map(e => e.sessionId || '(unknown)')).size;
+    const allTime = new Set(state.allEntries.map(e => e.sessionId || '(unknown)')).size;
+    totalEl.textContent = 'Sessions in total: ' + fmtInt(inRange)
+      + (allTime !== inRange ? ` · all time: ${fmtInt(allTime)}` : '');
+    totalEl.title = allTime !== inRange
+      ? `${allTime - inRange} older session${allTime - inRange !== 1 ? 's' : ''} hidden by the date range filter — widen "from" above to include them`
+      : '';
+  }
+
   const map = new Map();
   for (const e of entries) {
     if (!map.has(e.model)) map.set(e.model, { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 });
@@ -18,8 +30,19 @@ export function renderModelTable(entries) {
     m.base       += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
   }
 
-  const rows = [...map.entries()].sort((a, b) => b[1].base - a[1].base);
-  if ((state.tableSortDirs['table-models'] || -1) === 1) rows.reverse();
+  const sortCol = state.tableSortCols['table-models'];
+  const sortDir = state.tableSortDirs['table-models'] || 0;
+  const rows = [...map.entries()];
+  if (sortDir === 0 || sortCol === undefined) {
+    rows.sort((a, b) => b[1].base - a[1].base);  // default: highest final cost first
+  } else {
+    const val = ([model, d]) => [model.toLowerCase(), d.calls, d.input, d.output, d.cacheWrite, d.cacheRead, d.base, d.base * state.markup][sortCol];
+    rows.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+      return r !== 0 ? r * sortDir : b[1].base - a[1].base;
+    });
+  }
   applySortHeaders('table-models');
   const tbody = document.querySelector('#table-models tbody');
   domClear(tbody);
@@ -29,23 +52,36 @@ export function renderModelTable(entries) {
     tr.appendChild(td); tbody.appendChild(tr);
   }
   for (const [model, d] of rows) {
-    const tr = document.createElement('tr');
-    const badge = domText('span', 'badge ' + badgeClass(model), model);
-    const td0 = document.createElement('td'); td0.appendChild(badge);
+    const tr = domEl('tr', 'model-row');
+    const td0 = document.createElement('td');
+    td0.appendChild(domText('span', 'model-chevron', isModelPanelOpen(model) ? '▾' : '▸'));
+    td0.appendChild(domText('span', 'badge ' + badgeClass(model), model));
     tr.appendChild(td0);
     for (const [text, cls] of [
       [fmtNum(d.calls), 'num'], [fmtNum(d.input), 'num'], [fmtNum(d.output), 'num'],
       [fmtNum(d.cacheWrite), 'num'], [fmtNum(d.cacheRead), 'num'],
-      ['$' + d.base.toFixed(4), 'num'], ['$' + (d.base * state.markup).toFixed(4), 'num'],
+      [fmtMoney(d.base, 4), 'num'], [fmtMoney(d.base * state.markup, 4), 'num'],
     ]) tr.appendChild(domCell(cls, text));
+    tr.onclick = () => {
+      const p = getModelPanel(model);
+      if (p.open) {
+        p.open = false;
+        collapsePanelRow(tr, () => renderModelTable(entries));
+      } else {
+        p.open = true;
+        p.justOpened = true;
+        renderModelTable(entries);
+      }
+    };
     tbody.appendChild(tr);
+    if (isModelPanelOpen(model)) tbody.appendChild(buildModelSessionsRow(model, entries));
   }
 }
 
 export function renderProjectsTable(entries) {
   const map = new Map();
   for (const e of entries) {
-    const key = e.cwd || '(unknown)';
+    const key = projectKey(e);
     if (!map.has(key)) map.set(key, { sessions: new Set(), calls: 0, base: 0 });
     const p = map.get(key);
     p.sessions.add(e.sessionId);
@@ -53,10 +89,28 @@ export function renderProjectsTable(entries) {
     p.base += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
   }
 
-  const rows = [...map.entries()].sort((a, b) => b[1].base - a[1].base);
-  if ((state.tableSortDirs['table-projects'] || -1) === 1) rows.reverse();
-  const rows20 = rows.slice(0, 20);
+  // Sort: three-state per column, neutral = highest final cost first
+  const sortCol = state.tableSortCols['table-projects'];
+  const sortDir = state.tableSortDirs['table-projects'] || 0;
+  const rows = [...map.entries()];
+  if (sortDir === 0 || sortCol === undefined) {
+    rows.sort((a, b) => b[1].base - a[1].base);
+  } else {
+    const val = ([key, d]) => [projectName(key).toLowerCase(), d.sessions.size, d.calls, d.base, d.base * state.markup][sortCol];
+    rows.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+      return r !== 0 ? r * sortDir : b[1].base - a[1].base;
+    });
+  }
   applySortHeaders('table-projects');
+
+  // Pagination — no row cap, shared paginator component
+  const p = state.projectsPage;
+  const maxPage = Math.max(0, Math.ceil(rows.length / p.pageSize) - 1);
+  if (p.pageIndex > maxPage) p.pageIndex = maxPage;
+  const pageRows = rows.slice(p.pageIndex * p.pageSize, p.pageIndex * p.pageSize + p.pageSize);
+
   const tbody = document.querySelector('#table-projects tbody');
   domClear(tbody);
   if (rows.length === 0) {
@@ -64,13 +118,34 @@ export function renderProjectsTable(entries) {
     const td = document.createElement('td'); td.colSpan = 5; td.textContent = 'No data'; td.className = 'text-center py-5 opacity-50';
     tr.appendChild(td); tbody.appendChild(tr);
   }
-  for (const [cwd, d] of rows20) {
-    const tr = document.createElement('tr');
-    tr.appendChild(domCell('mono', shortPath(cwd)));
+  for (const [key, d] of pageRows) {
+    const tr = domEl('tr', 'project-row');
+    const td0 = document.createElement('td');
+    td0.appendChild(domText('span', 'model-chevron', isProjectPanelOpen(key) ? '▾' : '▸'));
+    td0.appendChild(domText('span', 'session-name font-medium', projectName(key)));
+    td0.title = key.startsWith('cowork:') ? 'Cowork task' : key;
+    tr.appendChild(td0);
     for (const [text, cls] of [
       [String(d.sessions.size), 'num'], [fmtNum(d.calls), 'num'],
-      ['$' + d.base.toFixed(4), 'num'], ['$' + (d.base * state.markup).toFixed(4), 'num'],
+      [fmtMoney(d.base, 4), 'num'], [fmtMoney(d.base * state.markup, 4), 'num'],
     ]) tr.appendChild(domCell(cls, text));
+    tr.onclick = () => {
+      const p = getProjectPanel(key);
+      if (p.open) {
+        p.open = false;
+        collapsePanelRow(tr, () => renderProjectsTable(entries));
+      } else {
+        p.open = true;
+        p.justOpened = true;
+        renderProjectsTable(entries);
+      }
+    };
     tbody.appendChild(tr);
+    if (isProjectPanelOpen(key)) tbody.appendChild(buildProjectSessionsRow(key, entries));
+  }
+  const pagerHost = document.getElementById('projects-paginator');
+  if (pagerHost) {
+    domClear(pagerHost);
+    pagerHost.appendChild(buildPaginator(p, rows.length, () => renderProjectsTable(entries)));
   }
 }

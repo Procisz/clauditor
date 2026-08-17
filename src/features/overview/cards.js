@@ -5,7 +5,7 @@ import { ApexCharts, getApexBaseOpts, CHART_COLORS } from '../../core/charts.js'
 import { state } from '../../core/state.js';
 import { dayKey, todayKey, shiftDay, getMonthKey } from '../../core/dates.js';
 import { calcCost } from '../../core/config.js';
-import { domEl, domText, domClear, fmtDuration, makeInfoIcon, calcSessionTime } from '../../core/utils.js';
+import { domEl, domText, domClear, fmtDuration, makeInfoIcon, calcSessionTime, fmtMoney } from '../../core/utils.js';
 
 const STAT_COLOR  = { accent: 'text-accent', yellow: 'text-warning', orange: 'text-primary', green: 'text-success' };
 const SPARK_COLOR = { accent: CHART_COLORS[0], yellow: CHART_COLORS[2], green: CHART_COLORS[1], '': CHART_COLORS[0] };
@@ -84,7 +84,7 @@ export function renderCards(entries) {
   let maxDay = '', maxCost = 0;
   for (const [d, c] of baseDayCosts) { if (c > maxCost) { maxCost = c; maxDay = d; } }
 
-  const fmt      = v => '$' + v.toFixed(2);
+  const fmt      = v => fmtMoney(v, 2);
   const dayCosts = buildDayCosts();
 
   const SESSION_TIME_TOOLTIP = 'Sum of each session\'s span: last message timestamp minus first message timestamp. Includes time you spent reading and thinking, not just Claude\'s processing time.';
@@ -205,9 +205,9 @@ export function renderBurnRate() {
     d.appendChild(l); d.appendChild(v);
     stats.appendChild(d);
   };
-  addRow('Spent',     '$' + spent.toFixed(2),     spentColor);
-  addRow('Budget',    '$' + budget.toFixed(2));
-  addRow('Projected', '$' + projected.toFixed(2), projColor);
+  addRow('Spent',     fmtMoney(spent, 2),     spentColor);
+  addRow('Budget',    fmtMoney(budget, 2));
+  addRow('Projected', fmtMoney(projected, 2), projColor);
   addRow('Day',       dayOfMonth + ' of ' + daysInMonth);
 
   wrap.appendChild(gaugeEl);

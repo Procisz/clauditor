@@ -19,8 +19,9 @@ function renderViewDependentCharts() {
   renderTokenChart(labels, data);
   renderCacheChart(labels, data);
   renderModelTable(entries);
-  renderTreemap(entries);
-  renderProjectsTable(entries);
+  // Top Projects deliberately ignores the date filter — always all time
+  renderTreemap(state.allEntries);
+  renderProjectsTable(state.allEntries);
   renderCumulativeSpend();
   if (state.activeTab === 'today') renderTodayView();
 }
@@ -28,8 +29,11 @@ function renderViewDependentCharts() {
 export function renderAll() {
   state.markup = Math.max(0, parseFloat(document.getElementById('markup-input').value) || CONFIG_DEFAULT_MARKUP);
   localStorage.setItem('clauditor_markup', state.markup);
+  // Persist only a user-chosen "from" — the auto-filled earliest-data date
+  // (and an explicitly cleared field) store '' so it means "all time" and the
+  // prefill recomputes when new (possibly older) data is loaded
   const dateFrom = document.getElementById('date-from').value;
-  if (dateFrom) localStorage.setItem('clauditor_date_from', dateFrom);
+  localStorage.setItem('clauditor_date_from', dateFrom === state.autoDateFrom ? '' : dateFrom);
   renderViewDependentCharts();
   renderHeatmap();
 }
