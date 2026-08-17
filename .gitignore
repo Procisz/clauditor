@@ -10,7 +10,6 @@ Thumbs.db
 desktop.ini
 
 node_modules
-dist
 dist-electron
 .playwright-mcp/
 ${local_app_data}*/
