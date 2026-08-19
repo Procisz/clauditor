@@ -4,7 +4,7 @@ import './styles.css';
 import { CONFIG_DEFAULT_MARKUP } from './core/config.js';
 import { state } from './core/state.js';
 import { loadHandle } from './core/db.js';
-import { browseCodeFolder, browseCoworkFolder, onCoworkPicked, openDashboard, showSources, reauthorize, showFreshSelect, refreshData } from './core/folder.js';
+import { browseCodeFolder, browseCoworkFolder, onCodeFilesPicked, onCoworkPicked, openDashboard, showSources, reauthorize, showFreshSelect, refreshData } from './core/folder.js';
 import { selectArchiveFolder, getArchiveHandle, updateArchiveButton } from './core/archive.js';
 import { hasNativeBridge, nativeInit } from './core/native.js';
 import { loadAndRender, loadFromFileInput, presentDashboard, setRenderCallback } from './core/loader.js';
@@ -85,7 +85,7 @@ function setupTableSorting() {
 // (required because this file is an ES module)
 Object.assign(window, {
   toggleTheme: () => { toggleTheme(); if (state.allEntries.length > 0) { if (state.activeTab === 'today') { destroyTodayCharts(); renderTodayView(); } else renderAll(); } },
-  browseCodeFolder, browseCoworkFolder, onCoworkPicked, openDashboard, showSources,
+  browseCodeFolder, browseCoworkFolder, onCodeFilesPicked, onCoworkPicked, openDashboard, showSources,
   loadFromFileInput, reauthorize, showFreshSelect, refreshData,
   selectArchiveFolder: () => selectArchiveFolder(() => presentDashboard()),
   renderAll, onMarkupChange, renderBurnRate, setView,

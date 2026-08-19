@@ -11,6 +11,7 @@ const COLUMNS = [
   { key: 'date',   label: 'Started',    cls: '' },
   { key: 'type',   label: 'Type',       cls: '' },
   { key: 'origin', label: 'Source',     cls: '' },
+  { key: 'effort', label: 'Effort',     cls: '' },
   { key: 'calls',  label: 'Calls',      cls: 'num' },
   { key: 'tokens', label: 'Tokens',     cls: 'num' },
   { key: 'cache',  label: 'Cache hit',  cls: 'num' },
@@ -21,6 +22,21 @@ function typeBadgeClass(type) {
   if (type === 'Cowork') return 'badge-accent';
   if (type === 'Chat')   return 'badge-ghost';
   return 'badge-info';   // Code
+}
+
+// Reasoning-effort levels: rank order + badge colors. The field is per-call
+// and only exists on newer log records — sessions can mix levels or have none.
+export const EFFORT_RANK = { low: 1, medium: 2, high: 3, xhigh: 4, max: 5 };
+
+export function effortBadgeClass(level) {
+  if (level === 'max')   return 'badge-error';
+  if (level === 'xhigh') return 'badge-warning';
+  if (level === 'high')  return 'badge-info';
+  return 'badge-ghost';  // medium / low / anything new
+}
+
+function effortsSorted(effMap) {
+  return [...effMap.entries()].sort((a, b) => (EFFORT_RANK[b[0]] || 0) - (EFFORT_RANK[a[0]] || 0));
 }
 
 function entryCost(e) {
@@ -58,12 +74,14 @@ function sessionsWhere(entries, pred) {
   for (const e of entries) {
     if (!pred(e)) continue;
     const key = e.sessionId || '(unknown)';
-    if (!map.has(key)) map.set(key, { rawSid: e.sessionId, slug: e.slug, cwd: e.cwd, entrypoint: e.entrypoint, kind: e.sessionKind || 'code', minTs: e.ts, maxTs: e.ts, calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 });
+    if (!map.has(key)) map.set(key, { rawSid: e.sessionId, slug: e.slug, cwd: e.cwd, entrypoint: e.entrypoint, kind: e.sessionKind || 'code', minTs: e.ts, maxTs: e.ts, calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0, efforts: new Map(), effortUnknown: 0 });
     const s = map.get(key);
     if (e.slug && !s.slug) s.slug = e.slug;
     if (e.cwd && !s.cwd)   s.cwd  = e.cwd;
     if (e.entrypoint && !s.entrypoint) s.entrypoint = e.entrypoint;
     if (e.sessionKind === 'cowork') s.kind = 'cowork';
+    if (e.effort) s.efforts.set(e.effort, (s.efforts.get(e.effort) || 0) + 1);
+    else s.effortUnknown++;
     if (e.ts && (!s.minTs || e.ts < s.minTs)) s.minTs = e.ts;
     if (e.ts && e.ts > s.maxTs) s.maxTs = e.ts;
     s.calls++; s.input += e.input; s.output += e.output; s.cacheWrite += e.cacheWrite; s.cacheRead += e.cacheRead;
@@ -76,6 +94,7 @@ function sessionsWhere(entries, pred) {
     s.cacheHit = ctx > 0 ? (s.cacheRead / ctx) * 100 : 0;
     s.type = sessionType(s.kind);
     s.origin = sessionOrigin(s.entrypoint);
+    s.effortRank = Math.max(0, ...[...s.efforts.keys()].map(k => EFFORT_RANK[k] || 0));
     return s;
   });
   return list;
@@ -89,6 +108,7 @@ function sortSessions(list, p) {
     date:   (a, b) => (a.minTs || '').localeCompare(b.minTs || ''),
     type:   (a, b) => a.type.localeCompare(b.type),
     origin: (a, b) => a.origin.localeCompare(b.origin),
+    effort: (a, b) => a.effortRank - b.effortRank,
     calls:  (a, b) => a.calls - b.calls,
     tokens: (a, b) => a.tokens - b.tokens,
     cache:  (a, b) => a.cacheHit - b.cacheHit,
@@ -226,6 +246,21 @@ function renderPanel(td, ns, key, entries) {
     typeCell.appendChild(domText('span', 'badge badge-sm whitespace-nowrap ' + typeBadgeClass(s.type), s.type));
     str.appendChild(typeCell);
     str.appendChild(domCell('whitespace-nowrap opacity-70', s.origin));
+    const effCell = domEl('td', 'whitespace-nowrap');
+    if (s.effortRank === 0) {
+      effCell.textContent = '—';
+      if (s.effortUnknown > 0) effCell.title = 'These log records predate the effort field';
+    } else {
+      const parts = effortsSorted(s.efforts);
+      effCell.appendChild(domText('span', 'badge badge-sm ' + effortBadgeClass(parts[0][0]), parts[0][0]));
+      if (parts.length > 1) {
+        effCell.appendChild(domText('span', 'text-xs opacity-60 ml-1.5',
+          parts.slice(1).map(([k, c]) => `${k} ×${fmtInt(c)}`).join(' · ')));
+      }
+      effCell.title = parts.map(([k, c]) => `${k}: ${fmtInt(c)} calls`).join('\n')
+        + (s.effortUnknown > 0 ? `\nno effort data: ${fmtInt(s.effortUnknown)} calls` : '');
+    }
+    str.appendChild(effCell);
     str.appendChild(domCell('num', fmtNum(s.calls)));
     const tokCell = domCell('num', fmtNum(s.tokens));
     tokCell.title = `input ${fmtNum(s.input)} · output ${fmtNum(s.output)}`;
@@ -340,6 +375,9 @@ export function openSessionModal(sid) {
   const t = { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 };
   const models = new Map();   // model → { calls, tokens, base }
   const agents = new Map();   // agentType → { calls, base }
+  const efforts = new Map();  // effort level → { calls, base }
+  let effortUnknown = 0;
+  let peakContext = 0;        // largest prompt (input + cache) of any single call
   const days = new Set();
   let minTs = '', maxTs = '', slug = '', cwd = '', entrypoint = '', kind = 'code';
   for (const e of all) {
@@ -353,6 +391,15 @@ export function openSessionModal(sid) {
     if (!agents.has(ag)) agents.set(ag, { calls: 0, base: 0 });
     const a = agents.get(ag);
     a.calls++; a.base += cost;
+    if (e.effort) {
+      if (!efforts.has(e.effort)) efforts.set(e.effort, { calls: 0, base: 0 });
+      const ef = efforts.get(e.effort);
+      ef.calls++; ef.base += cost;
+    } else {
+      effortUnknown++;
+    }
+    const promptTokens = e.input + e.cacheRead + e.cacheWrite;
+    if (promptTokens > peakContext) peakContext = promptTokens;
     if (e.date) days.add(e.date);
     if (e.ts && (!minTs || e.ts < minTs)) minTs = e.ts;
     if (e.ts && e.ts > maxTs) maxTs = e.ts;
@@ -459,6 +506,25 @@ export function openSessionModal(sid) {
     modalBox.appendChild(arow);
   }
 
+  // Per-effort breakdown (newer logs only — older records carry no effort field)
+  if (efforts.size > 0) {
+    modalBox.appendChild(sectionTitle('Effort'));
+    const erow = domEl('div', 'flex flex-wrap gap-2');
+    for (const [level, ef] of effortsSorted(efforts)) {
+      const chip = domEl('span', 'badge badge-outline gap-1.5 py-3');
+      chip.appendChild(domText('span', 'badge badge-sm ' + effortBadgeClass(level), level));
+      chip.appendChild(domText('span', 'opacity-60', `${fmtNum(ef.calls)} calls · ${fmtMoney(ef.base * state.markup, 4)}`));
+      erow.appendChild(chip);
+    }
+    if (effortUnknown > 0) {
+      const chip = domEl('span', 'badge badge-outline gap-1.5 py-3 opacity-60');
+      chip.textContent = `no data: ${fmtNum(effortUnknown)} calls`;
+      chip.title = 'These log records predate the effort field';
+      erow.appendChild(chip);
+    }
+    modalBox.appendChild(erow);
+  }
+
   // Meta footer
   modalBox.appendChild(sectionTitle('Timeline'));
   const meta = domEl('div', 'grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-xs');
@@ -470,6 +536,15 @@ export function openSessionModal(sid) {
   meta.appendChild(metaItem('Cache write', fmtNum(t.cacheWrite) + ' tokens'));
   meta.appendChild(metaItem('Base cost', fmtMoney(t.base, 4)));
   meta.appendChild(metaItem('Share of total spend', fmtFixed(share, 2) + '%'));
+  if (peakContext > 0) {
+    // Window size is inferred: 200k standard, 1M when the peak proves it
+    const win = peakContext > 200_000 ? 1_000_000 : 200_000;
+    const ctxItem = metaItem('Peak context use',
+      `${fmtNum(peakContext)} · ~${fmtFixed(peakContext / win * 100, 1)}% of ${fmtNum(win)}`);
+    ctxItem.title = 'Largest single prompt of the session (input + cache read + cache write). '
+      + 'The window size is an estimate: 200K assumed, 1M when the peak exceeds 200K.';
+    meta.appendChild(ctxItem);
+  }
   modalBox.appendChild(meta);
 
   modalEl.showModal();

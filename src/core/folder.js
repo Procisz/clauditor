@@ -2,7 +2,7 @@
 // FOLDER — data-source browsing, statuses, re-authorization
 // ─────────────────────────────────────────────
 import { saveHandle, loadHandle } from './db.js';
-import { loadAndRender, loadCodeData, loadCoworkData, presentDashboard } from './loader.js';
+import { loadAndRender, loadCodeData, loadCodeDataFromFiles, loadCoworkData, presentDashboard } from './loader.js';
 import { state } from './state.js';
 import { showError, domEl, domText, domClear, fmtInt } from './utils.js';
 import { hasNativeBridge, nativeInit } from './native.js';
@@ -43,6 +43,30 @@ export async function browseCodeFolder() {
   } catch (e) {
     if (e.name !== 'AbortError') setStatus('status-code', 'err', e.message);
   }
+  updateOpenButton();
+}
+
+// Fallback for browsers without showDirectoryPicker (Safari, some file://
+// contexts): the classic input stages the source exactly like the picker path
+// — status + Open Dashboard, never auto-presenting. Cowork audit files inside
+// the picked tree are picked up too.
+export async function onCodeFilesPicked(fileList) {
+  const input = document.getElementById('file-input-fallback');
+  try {
+    setStatus('status-code', 'load', 'Reading folder…');
+    const all = Array.from(fileList);
+    const stats = await loadCodeDataFromFiles(all);
+    const cw = await loadCoworkData(all);
+    if (stats.entries === 0 && cw.entries === 0) {
+      setStatus('status-code', 'err', 'No usage records found — did you select .claude/projects?');
+    } else {
+      setStatus('status-code', 'ok', `${stats.files} file${stats.files !== 1 ? 's' : ''}, ${fmtInt(stats.entries)} usage records`);
+      if (cw.tasks > 0) setStatus('status-cowork', 'ok', `${cw.tasks} task${cw.tasks !== 1 ? 's' : ''}, ${fmtInt(cw.entries)} usage records`);
+    }
+  } catch (e) {
+    setStatus('status-code', 'err', e.message);
+  }
+  if (input) input.value = '';
   updateOpenButton();
 }
 

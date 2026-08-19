@@ -17,6 +17,25 @@ export function renderModelTable(entries) {
       ? `${allTime - inRange} older session${allTime - inRange !== 1 ? 's' : ''} hidden by the date range filter — widen "from" above to include them`
       : '';
   }
+  const effortEl = document.getElementById('model-effort-mix');
+  if (effortEl) {
+    const eff = new Map();
+    let noEffort = 0;
+    for (const e of entries) {
+      if (e.effort) eff.set(e.effort, (eff.get(e.effort) || 0) + 1);
+      else noEffort++;
+    }
+    if (eff.size === 0) {
+      effortEl.textContent = '';
+    } else {
+      const order = { low: 1, medium: 2, high: 3, xhigh: 4, max: 5 };
+      const parts = [...eff.entries()].sort((a, b) => (order[b[0]] || 0) - (order[a[0]] || 0))
+        .map(([k, c]) => `${k} ${fmtNum(c)}`);
+      effortEl.textContent = '· effort: ' + parts.join(' · ');
+      effortEl.title = 'Calls per reasoning-effort level in the current date range'
+        + (noEffort > 0 ? ` (${fmtNum(noEffort)} calls have no effort data — older log records)` : '');
+    }
+  }
 
   const map = new Map();
   for (const e of entries) {
