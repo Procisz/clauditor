@@ -1,21 +1,17 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — drill-down detail panel (click a chart bar)
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { getFilteredEntries } from '../../core/parser.js';
 import { getWeekKey, getMonthKey } from '../../core/dates.js';
 import { domEl, domCell, domClear, fmtNum, fmtMoney, shortPath, sessionName } from '../../core/utils.js';
 
 export function showDetail(bucketKey) {
-  // Match entries to this bucket
+
   const entries = getFilteredEntries().filter(e => {
     if (state.view === 'daily')   return e.date === bucketKey;
     if (state.view === 'weekly')  return getWeekKey(e.date) === bucketKey;
     return getMonthKey(e.date) === bucketKey;
   });
 
-  // Group by sessionId
   const map = new Map();
   for (const e of entries) {
     const key = e.sessionId || '(unknown)';
@@ -25,7 +21,7 @@ export function showDetail(bucketKey) {
     s.input    += e.input;
     s.output   += e.output;
     s.cacheRead += e.cacheRead;
-    s.base     += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    s.base     += entryCost(e);
   }
 
   const viewLabel = state.view === 'weekly' ? 'week of ' : state.view === 'monthly' ? '' : '';

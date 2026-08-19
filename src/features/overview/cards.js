@@ -1,10 +1,7 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — summary cards (with sparklines) and burn rate gauge
-// ─────────────────────────────────────────────
 import { ApexCharts, getApexBaseOpts, CHART_COLORS } from '../../core/charts.js';
 import { state } from '../../core/state.js';
 import { dayKey, todayKey, shiftDay, getMonthKey } from '../../core/dates.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { domEl, domText, domClear, fmtDuration, makeInfoIcon, calcSessionTime, fmtMoney } from '../../core/utils.js';
 
 const STAT_COLOR  = { accent: 'text-accent', yellow: 'text-warning', orange: 'text-primary', green: 'text-success' };
@@ -18,13 +15,13 @@ export function resizeSparklines() {
     const w = el?.offsetWidth;
     if (w) chart.updateOptions({ chart: { width: w } }, false, false);
   }
-  // burnChart lives in a fixed 150px container — no resize needed
+
 }
 
 function buildDayCosts() {
   const map = new Map();
   for (const e of state.allEntries) {
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     map.set(e.date, (map.get(e.date) || 0) + cost);
   }
   return map;
@@ -56,7 +53,7 @@ function sparkToday(todayStr) {
     if (e.date !== todayStr || !e.ts) continue;
     const h = new Date(e.ts).getHours();
     if (h < 0 || h > 23 || !Number.isFinite(h)) continue;
-    hourCosts[h] += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    hourCosts[h] += entryCost(e) * state.markup;
   }
   return hourCosts.map(v => +v.toFixed(6));
 }
@@ -73,7 +70,7 @@ export function renderCards(entries) {
   const baseDayCosts = new Map();
   const allEntries = state.allEntries;
   for (const e of allEntries) {
-    const base = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    const base = entryCost(e);
     totalBase += base; totalFinal += base * state.markup;
     if (e.date.startsWith(thisMonth)) monthBase += base;
     if (e.date >= weekStr)            weekBase  += base;
@@ -126,7 +123,7 @@ export function renderCards(entries) {
     card.appendChild(body);
     container.appendChild(card);
 
-    if (c.spark) { // c.spark is now a data array
+    if (c.spark) {
       const sparkEl = domEl('div');
       sparkEl.style.cssText = 'margin: -8px -1px 0; line-height: 0;';
       card.appendChild(sparkEl);
@@ -167,7 +164,7 @@ export function renderBurnRate() {
   let spent = 0;
   for (const e of state.allEntries) {
     if (!e.date.startsWith(thisMonth)) continue;
-    spent += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    spent += entryCost(e) * state.markup;
   }
 
   const dailyAvg   = spent / dayOfMonth;

@@ -1,11 +1,7 @@
-// ─────────────────────────────────────────────
-// FILE SYSTEM — read all JSONL recursively
-// ─────────────────────────────────────────────
 export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = false) {
   const dirEntries = [];
   for await (const [name, entry] of dirHandle.entries()) dirEntries.push([name, entry]);
 
-  // In a subagents/ dir, read meta.json files first to get agent type names
   const metaMap = {};
   if (isSubagentsDir) {
     for (const [name, entry] of dirEntries) {
@@ -20,8 +16,7 @@ export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = 
   }
 
   for (const [name, entry] of dirEntries) {
-    // Cowork audit transcripts use a different record format and are loaded
-    // via cowork.js — parsing them as Claude Code logs would double-count
+
     if (name === 'audit.jsonl') continue;
     if (entry.kind === 'file' && name.endsWith('.jsonl')) {
       const agentType = isSubagentsDir ? (metaMap[name.replace('.jsonl', '')] || 'agent') : 'main';

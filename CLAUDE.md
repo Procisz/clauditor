@@ -68,6 +68,10 @@ src/
         └── welcome.html
 ```
 
+**Code style — no comments:** the source is deliberately comment-free (repo owner's preference). Do not add code comments; document invariants and conventions in THIS file instead.
+
+**Shared helpers — always use, never inline:** `entryCost(e)` in config.js (cost of one parsed entry — never build the calcCost usage-object by hand), `parseJsonlLines(text)` in parser.js (JSONL → records), `fmtMoney/fmtFixed/fmtInt/fmtNum` in utils.js (all display numbers), `buildPaginator` in utils.js (all pagination UI). Directory handles persist via `saveHandle/loadHandle(key)` in db.js (archive uses its own key).
+
 **Key gotcha:** Because the bundle is `type="module"`, top-level functions are not globally scoped. Any new function called from an HTML `onclick` attribute must be added to the `Object.assign(window, {...})` block at the bottom of `main.js`.
 
 **Render callback:** `loader.js` does not import from `features/`. Instead, `main.js` calls `setRenderCallback(renderAll)` at startup to wire the post-load render without creating a circular dependency.

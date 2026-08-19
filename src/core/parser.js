@@ -1,17 +1,20 @@
-// ─────────────────────────────────────────────
-// PARSE — extract usage entries and aggregation helpers
-// ─────────────────────────────────────────────
-import { calcCost } from './config.js';
+import { entryCost } from './config.js';
 import { state } from './state.js';
 import { dayKey, todayKey, getWeekKey, getMonthKey } from './dates.js';
 
-// Identity keys shared by the loader dedupe and the archive's append-only
-// writes. Streaming writes multiple partial entries per message ID, and the
-// archive re-reads entries that may still exist in live files — every "have
-// I seen this record" check MUST go through these two functions so the three
-// call sites (loader dedupe, archive write, archive merge) can never drift.
 export function entryKey(e)    { return e.msgId || (e.ts + '|' + e.sessionId); }
 export function durationKey(d) { return d.ts + '|' + d.sessionId; }
+
+export function parseJsonlLines(text) {
+  const records = [];
+  if (!text) return records;
+  for (const line of text.split('\n')) {
+    const l = line.trim();
+    if (!l) continue;
+    try { records.push(JSON.parse(l)); } catch {}
+  }
+  return records;
+}
 
 export function parseEntries(records, agentType = 'main') {
   const entries = [];
@@ -40,9 +43,6 @@ export function parseEntries(records, agentType = 'main') {
   return entries;
 }
 
-// Session titles: Claude Desktop (and newer CLI builds) periodically write
-// {type:'custom-title', customTitle, sessionId} records — the same names the
-// Desktop sidebar shows. The record is re-stamped over time, so last one wins.
 export function parseSessionTitles(records) {
   const titles = new Map();
   for (const r of records) {
@@ -69,10 +69,6 @@ export function parseDurations(records) {
   return durations;
 }
 
-// Cowork audit.jsonl transcripts (Desktop app local-agent-mode-sessions).
-// Same assistant/usage shape as Claude Code logs, but session ids are
-// snake_case and per-command — all records of a task are grouped under the
-// task's own id so one Cowork task = one session row.
 export function parseCoworkEntries(records, taskId) {
   const entries = [];
   for (const r of records) {
@@ -100,18 +96,10 @@ export function parseCoworkEntries(records, taskId) {
   return entries;
 }
 
-// Session taxonomy. Type: 'Chat' | 'Cowork' | 'Code' — what kind of Claude
-// session produced the logs. ~/.claude/projects holds only Claude Code
-// sessions; Cowork tasks live in the Desktop app's local-agent-mode-sessions
-// store (loaded via cowork.js, entries tagged sessionKind:'cowork'); Chat
-// conversations are server-side only and have no local data.
 export function sessionType(kind) {
   return kind === 'cowork' ? 'Cowork' : 'Code';
 }
 
-// Source: 'Desktop app' | 'CLI' — where the Code session ran. Desktop Code-tab
-// sessions stamp entrypoint:'claude-desktop' on every record; terminal
-// sessions stamp 'cli' or (in older CLI versions) nothing at all.
 export function sessionOrigin(entrypoint) {
   return (entrypoint || '').toLowerCase() === 'claude-desktop' ? 'Desktop app' : 'CLI';
 }
@@ -148,9 +136,9 @@ export function bucketEntries(entries) {
     b.output     += e.output;
     b.cacheWrite += e.cacheWrite;
     b.cacheRead  += e.cacheRead;
-    b.baseCost   += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    b.baseCost   += entryCost(e);
   }
-  // Fill gaps — always extend to current bucket even if it has no data
+
   if (map.size === 0) return { labels: [], data: map };
 
   const keys = [...map.keys()].sort();
@@ -162,7 +150,7 @@ export function bucketEntries(entries) {
   const from = inputBucketKey && inputBucketKey < keys[0] ? inputBucketKey : keys[0];
   const to = curKey > keys[keys.length - 1] ? curKey : keys[keys.length - 1];
   const filledSet = new Set();
-  // Iteration is pure calendar math on day strings — UTC internals are safe here
+
   const toDateStr = v => state.view === 'monthly' ? v + '-01' : v;
   let cur = new Date(toDateStr(from) + 'T00:00:00Z');
   const end = new Date(toDateStr(to) + 'T00:00:00Z');

@@ -1,8 +1,3 @@
-// Sanity check for src/core/config.js — run after every pricing edit:
-//   npm run check:pricing
-// Asserts that known model IDs resolve to the intended rates (catching
-// pattern-shadowing mistakes) and that no current model falls back to
-// PRICING_DEFAULT (the silent-mispricing bug class from v1.12.1).
 import { PRICING, PRICING_DEFAULT, getPricing, getUnknownModels } from '../src/core/config.js';
 
 let failures = 0;
@@ -11,7 +6,6 @@ function check(label, ok, detail = '') {
   else    { console.error(`FAIL  ${label}${detail ? ' — ' + detail : ''}`); failures++; }
 }
 
-// Known model IDs → expected [input, output] per 1M tokens
 const EXPECTED = {
   'claude-fable-5':              [10.00, 50.00],
   'claude-mythos-5':             [10.00, 50.00],
@@ -23,7 +17,7 @@ const EXPECTED = {
   'claude-opus-4-1-20250805':    [15.00, 75.00],
   'claude-opus-4-20250514':      [15.00, 75.00],
   'claude-3-opus-20240229':      [15.00, 75.00],
-  'claude-sonnet-5':             [ 2.00, 10.00], // intro pricing through 2026-08-31
+  'claude-sonnet-5':             [ 2.00, 10.00],
   'claude-sonnet-4-6':           [ 3.00, 15.00],
   'claude-sonnet-4-5-20250929':  [ 3.00, 15.00],
   'claude-sonnet-4-20250514':    [ 3.00, 15.00],

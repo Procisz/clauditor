@@ -1,9 +1,6 @@
-// ─────────────────────────────────────────────
-// TODAY — summary cards (8 metrics)
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { todayKey } from '../../core/dates.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { domEl, domText, domClear, fmtNum, fmtDuration, makeInfoIcon, calcSessionTime, fmtMoney, fmtFixed } from '../../core/utils.js';
 
 const STAT_COLOR = { accent: 'text-accent', yellow: 'text-warning', orange: 'text-primary', green: 'text-success' };
@@ -14,7 +11,7 @@ export function renderTodayCards(entries) {
   const sessions = new Set(entries.map(e => e.sessionId));
   let totalBase = 0, totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;
   for (const e of entries) {
-    totalBase      += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    totalBase      += entryCost(e);
     totalInput     += e.input;
     totalOutput    += e.output;
     totalCacheRead += e.cacheRead;

@@ -1,8 +1,6 @@
-<!-- View: Today -->
 <div id="view-today" style="display:none">
 
-  <!-- Day navigator -->
-  <div class="flex items-center gap-2 mb-5">
+    <div class="flex items-center gap-2 mb-5">
     <button class="btn btn-sm btn-square bg-base-100 border border-base-300" onclick="prevDay()">&#8249;</button>
     <input type="date" id="day-picker" class="input input-sm input-border" oninput="onDayPicked(this.value)">
     <button class="btn btn-sm btn-square bg-base-100 border border-base-300" onclick="nextDay()" id="btn-next-day">&#8250;</button>
@@ -10,11 +8,9 @@
     <button class="btn btn-sm btn-primary" onclick="goToToday()" id="btn-today-jump">Today</button>
   </div>
 
-  <!-- Today summary cards -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5" id="today-cards"></div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5" id="today-cards"></div>
 
-  <!-- Pie charts row -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
     <div class="card bg-base-100 card-border border-base-300">
       <div class="card-body p-4 gap-3">
         <h3 class="card-title text-base">Cost by Model</h3>
@@ -29,56 +25,49 @@
     </div>
   </div>
 
-  <!-- Cost by hour -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Cost by Hour <span class="text-sm font-normal opacity-50">(final, incl. markup)</span></h3>
       <div class="chart-wrap"><div id="chart-today-hourly"></div></div>
     </div>
   </div>
 
-  <!-- Response time by hour -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Response Time by Hour <span class="text-sm font-normal opacity-50">(avg seconds per turn)</span></h3>
       <div class="chart-wrap"><div id="chart-today-response"></div></div>
     </div>
   </div>
 
-  <!-- Cache efficiency today -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Cache Efficiency <span id="title-today-cache"></span> <span class="text-sm font-normal opacity-50">(cache read % = money saved)</span></h3>
       <div class="chart-wrap-sm"><div id="chart-today-cache"></div></div>
     </div>
   </div>
 
-  <!-- Cumulative cost today -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Cumulative Cost <span class="text-sm font-normal opacity-50">(running total throughout the day)</span></h3>
       <div class="chart-wrap"><div id="chart-today-cumulative"></div></div>
     </div>
   </div>
 
-  <!-- Session timeline -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Session Timeline <span class="text-sm font-normal opacity-50">(active time per session)</span></h3>
       <div id="chart-timeline"></div>
     </div>
   </div>
 
-  <!-- API calls scatter -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">API Calls <span class="text-sm font-normal opacity-50">(time of day vs cost, bubble = output tokens)</span></h3>
       <div class="chart-wrap"><div id="chart-today-scatter"></div></div>
     </div>
   </div>
 
-  <!-- Today sessions table -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base" id="title-today-sessions">Today's Sessions</h3>
       <div class="overflow-x-auto">
@@ -103,8 +92,7 @@
     </div>
   </div>
 
-  <!-- Today projects -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base" id="title-today-projects">Today's Projects</h3>
       <div class="overflow-x-auto">
@@ -124,4 +112,4 @@
     </div>
   </div>
 
-</div><!-- /view-today -->
+</div>

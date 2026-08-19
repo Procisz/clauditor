@@ -8,6 +8,14 @@ All notable changes to Clauditor are documented here.
 - Reasoning-effort visibility: sortable Effort column in the session panels (dominant level badge + compact mix like `xhigh · max ×3`), per-effort breakdown chips in the session modal, and an aggregate effort mix in the Model Breakdown header — the field only exists on newer log records, older calls show as "no data"
 - Session modal shows peak context-window use (largest prompt of the session, with an estimated % of the 200K/1M window)
 
+### ♻️ Refactoring
+- Comment-free codebase (owner preference — invariants documented in CLAUDE.md); dead code removed
+- Deduplicated shared logic: `entryCost()` (10 files inlined the same cost expression), `parseJsonlLines()` (loader/native), effort ranking, keyed directory-handle persistence in db.js (archive reuses it)
+
+### 🐛 Bug Fixes
+- Today tab session rows now backfill slug/cwd from later entries (first-record-wins gap)
+- Setting the same character for both number separators no longer produces ambiguous numbers (thousands separator auto-clears)
+
 ---
 
 ## [2.0.0] — 2026-08-17

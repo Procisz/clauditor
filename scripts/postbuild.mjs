@@ -10,7 +10,7 @@ const result = await minify(html, {
   removeRedundantAttributes: true,
   removeEmptyAttributes: true,
   minifyCSS: true,
-  // JS is already minified by esbuild — skip to avoid double-processing
+
   minifyJS: false,
 });
 

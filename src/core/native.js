@@ -1,30 +1,13 @@
-// ─────────────────────────────────────────────
-// NATIVE — Electron-only auto-loader. The preload script exposes
-// window.clauditorFS (list/read restricted to the two data roots); with it
-// the app discovers ~/.claude/projects AND the Desktop app's Cowork store
-// automatically — no pickers, no permission prompts, no welcome screen.
-// ─────────────────────────────────────────────
 import { state } from './state.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries } from './parser.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, parseJsonlLines } from './parser.js';
 
 export function hasNativeBridge() {
   return typeof window !== 'undefined' && !!window.clauditorFS;
 }
 
-function parseLines(text) {
-  const records = [];
-  if (!text) return records;
-  for (const line of text.split('\n')) {
-    const l = line.trim();
-    if (!l) continue;
-    try { records.push(JSON.parse(l)); } catch {}
-  }
-  return records;
-}
-
 async function walk(fsx, dir, visit) {
   let items;
-  try { items = await fsx.list(dir); } catch { return; }  // root may not exist
+  try { items = await fsx.list(dir); } catch { return; }
   for (const it of items) {
     const p = dir + '/' + it.name;
     if (it.dir) await walk(fsx, p, visit);
@@ -32,7 +15,6 @@ async function walk(fsx, dir, visit) {
   }
 }
 
-// Reads both sources into state.srcCode / state.srcCowork; returns counts
 export async function nativeInit() {
   const fsx = window.clauditorFS;
   const { projects, cowork } = await fsx.paths();
@@ -49,16 +31,12 @@ export async function nativeInit() {
         agentType = meta.agentType || 'agent';
       } catch { agentType = 'agent'; }
     }
-    const records = parseLines(await fsx.read(p));
+    const records = parseJsonlLines(await fsx.read(p));
     code.entries.push(...parseEntries(records, agentType));
     code.durations.push(...parseDurations(records));
     for (const [sid, t] of parseSessionTitles(records)) { code.titles.set(sid, t); code.liveSids.add(sid); }
   });
 
-  // Cowork tasks keep usage in TWO places: the signed audit.jsonl mirror AND
-  // a full private Claude Code tree at local_<id>/.claude/projects/… (which
-  // also holds subagent sidechains the audit lacks). Read both — entries
-  // dedupe globally by message id at present time.
   const cw = { entries: [], durations: [], titles: new Map() };
   let coworkTasks = 0;
   await walk(fsx, cowork, async (p, name, dir) => {
@@ -67,7 +45,7 @@ export async function nativeInit() {
       coworkTasks++;
       const dirName = dir.split('/').pop();
       const taskId = dirName.replace(/^local_/, '');
-      cw.entries.push(...parseCoworkEntries(parseLines(await fsx.read(p)), taskId));
+      cw.entries.push(...parseCoworkEntries(parseJsonlLines(await fsx.read(p)), taskId));
       try {
         const parent = dir.slice(0, dir.length - dirName.length - 1);
         const meta = JSON.parse(await fsx.read(parent + '/' + dirName + '.json'));
@@ -76,7 +54,7 @@ export async function nativeInit() {
       return;
     }
     const m = dir.match(/\/(local_[^/]+)\/\.claude\//);
-    if (!m) return;  // stray jsonl outside a task's .claude tree
+    if (!m) return;
     const taskId = m[1].replace(/^local_/, '');
     let agentType = 'main';
     if (dir.includes('/subagents')) {
@@ -85,9 +63,9 @@ export async function nativeInit() {
         agentType = (meta && meta.agentType) || 'agent';
       } catch { agentType = 'agent'; }
     }
-    const records = parseLines(await fsx.read(p));
+    const records = parseJsonlLines(await fsx.read(p));
     for (const e of parseEntries(records, agentType)) {
-      e.sessionId = taskId;                 // group the whole task as one session
+      e.sessionId = taskId;
       e.sessionKind = 'cowork';
       e.entrypoint = 'claude-desktop';
       cw.entries.push(e);
@@ -99,7 +77,7 @@ export async function nativeInit() {
   });
 
   state.srcCode = code;
-  state.srcCodeFromHandle = true;  // Refresh re-runs the native read
+  state.srcCodeFromHandle = true;
   state.srcCowork = cw.entries.length > 0 ? cw : null;
   return { codeFiles, codeEntries: code.entries.length, coworkTasks, coworkEntries: cw.entries.length };
 }

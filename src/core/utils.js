@@ -1,6 +1,3 @@
-// ─────────────────────────────────────────────
-// UI HELPERS — DOM utilities, formatters, shared model helpers
-// ─────────────────────────────────────────────
 import { state } from './state.js';
 
 export function showLoading(msg) {
@@ -15,13 +12,7 @@ export function showDashboard()   { document.getElementById('welcome').style.dis
 export function showError(msg)    { const el = document.getElementById('error-banner'); el.style.display = 'flex'; el.textContent = msg; }
 export function hideError()       { document.getElementById('error-banner').style.display = 'none'; }
 
-// ─── Dismissal store ─────────────────────────
-// Shared by every dismissable warning/error banner. Closing a banner
-// suppresses it for ONE MONTH, tracked independently per key — after the
-// month it warns again. Keys are namespaced per banner type (e.g.
-// 'pricing:<model>'); any new dismissable warning or error should reuse
-// dismissForAMonth()/readDismissals() with its own namespace prefix.
-const DISMISSALS_KEY = 'clauditor_dismissals';   // { "<key>": <expiryEpochMs> }
+const DISMISSALS_KEY = 'clauditor_dismissals';
 const LEGACY_DISMISSED_MODELS_KEY = 'clauditor_dismissed_models';
 
 function monthFromNow() { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.getTime(); }
@@ -33,7 +24,7 @@ function writeDismissals(map) {
 function readDismissals() {
   let map = {};
   try { map = JSON.parse(localStorage.getItem(DISMISSALS_KEY)) || {}; } catch {}
-  // Migrate the short-lived dismissed-forever array format to 1-month entries
+
   try {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_DISMISSED_MODELS_KEY));
     if (Array.isArray(legacy)) {
@@ -42,7 +33,7 @@ function readDismissals() {
       writeDismissals(map);
     }
   } catch {}
-  // Prune expired entries so suppression ends and the store can't grow forever
+
   const now = Date.now();
   let changed = false;
   for (const [k, exp] of Object.entries(map)) {
@@ -58,8 +49,6 @@ export function dismissForAMonth(keys) {
   writeDismissals(map);
 }
 
-// Wire a static always-rendered note (with a .note-close button inside) to the
-// dismissal store: hidden while its key is suppressed, ✕ dismisses for a month
 export function initDismissableNote(elId, key) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -68,10 +57,6 @@ export function initDismissableNote(elId, key) {
   if (btn) btn.onclick = () => { dismissForAMonth(key); el.style.display = 'none'; };
 }
 
-// ─── Cowork-missing warning banner ───────────
-// Deliberately NOT wired to the one-month dismissal store: per product
-// decision this warning re-appears on every dashboard presentation while no
-// Cowork data is loaded — ✕ only hides it until the next present.
 export function updateCoworkWarning() {
   const el = document.getElementById('cowork-warning');
   if (!el) return;
@@ -81,9 +66,6 @@ export function updateCoworkWarning() {
   if (btn) btn.onclick = () => { el.style.display = 'none'; };
 }
 
-// ─── Pricing warning banner ──────────────────
-// Shown after load when entries reference models missing from the PRICING
-// table — their costs are computed at default (sonnet) rates and likely wrong.
 export function updatePricingWarning(unknownModels) {
   const el = document.getElementById('pricing-warning');
   if (!el) return;
@@ -100,10 +82,6 @@ export function updatePricingWarning(unknownModels) {
   el.style.display = 'flex';
 }
 
-// ─── Number formatting ───────────────────────
-// Every user-visible number goes through these; the separators are
-// configurable (persisted via main.js) and default to "1,234.56".
-// Chart series data and CSV exports stay raw — machine formats.
 export function fmtFixed(v, decimals = 0) {
   const neg = v < 0;
   const [int, frac] = Math.abs(v).toFixed(decimals).split('.');
@@ -113,8 +91,6 @@ export function fmtFixed(v, decimals = 0) {
 export function fmtMoney(v, decimals = 4) { return '$' + fmtFixed(v, decimals); }
 export function fmtInt(n) { return fmtFixed(n, 0); }
 
-// Human-readable duration: the two most significant units, zero remainders
-// dropped. Calendar-ish approximations: 1w = 7d, 1mo = 30d, 1y = 365d.
 export function fmtDuration(ms) {
   if (ms <= 0) return '—';
   if (ms < 60000) return fmtFixed(ms / 1000, 1) + 's';
@@ -149,15 +125,10 @@ export function fmtNum(n) {
   return String(n);
 }
 
-// Display name for a session: user-facing title (the Desktop sidebar name,
-// from custom-title records) → auto-generated slug → session id prefix
 export function sessionName(sid, slug) {
   return state.sessionTitles.get(sid) || slug || (sid ? sid.slice(0, 8) : '(unknown)');
 }
 
-// ─── Project identity ────────────────────────
-// Code sessions group by working directory; every Cowork task is its own
-// project (its internal cwd points into the app's store and is meaningless).
 export function projectKey(e) {
   if (e.sessionKind === 'cowork') return 'cowork:' + (e.sessionId || '(unknown)');
   return e.cwd || '(unknown)';
@@ -176,9 +147,6 @@ export function shortPath(p) {
   return p.length > 60 ? '…' + p.slice(-60) : p;
 }
 
-// ─── Shared Material-style paginator ─────────
-// p is a mutable {pageSize, pageIndex} state object; rerender is called after
-// every interaction. Callers clamp pageIndex before slicing their rows.
 export const PAGE_SIZES = [5, 10, 25, 50, 100];
 
 export function buildPaginator(p, total, rerender) {
@@ -198,7 +166,7 @@ export function buildPaginator(p, total, rerender) {
   sel.onchange = () => {
     const firstItem = p.pageIndex * p.pageSize;
     p.pageSize = parseInt(sel.value, 10);
-    p.pageIndex = Math.floor(firstItem / p.pageSize);  // keep the first visible item visible
+    p.pageIndex = Math.floor(firstItem / p.pageSize);
     rerender();
   };
   pager.appendChild(sel);
@@ -222,7 +190,6 @@ export function buildPaginator(p, total, rerender) {
   return pager;
 }
 
-// DOM helpers — safe by construction, no innerHTML needed
 export function domEl(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
 export function domText(tag, cls, text) { const e = domEl(tag, cls); e.textContent = text; return e; }
 export function domCell(cls, text) { return domText('td', cls, text); }
@@ -290,8 +257,7 @@ export function applySortHeaders(tableId) {
   const dir = state.tableSortDirs[tableId] || -1;
   const table = document.getElementById(tableId);
   if (!table) return;
-  // :scope > thead — expansion panels nest their own sortable tables inside
-  // tbody; a bare 'thead th' selector would match those headers too
+
   const ths = table.querySelectorAll(':scope > thead th');
   const sortCol = state.tableSortCols[tableId] !== undefined ? state.tableSortCols[tableId] : ths.length - 1;
   ths.forEach((th, i) => {

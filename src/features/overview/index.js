@@ -1,6 +1,3 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — orchestrator: renderAll, setView, exportCsv
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { calcCost, CONFIG_DEFAULT_MARKUP } from '../../core/config.js';
 import { getFilteredEntries, bucketEntries } from '../../core/parser.js';
@@ -19,7 +16,7 @@ function renderViewDependentCharts() {
   renderTokenChart(labels, data);
   renderCacheChart(labels, data);
   renderModelTable(entries);
-  // Top Projects deliberately ignores the date filter — always all time
+
   renderTreemap(state.allEntries);
   renderProjectsTable(state.allEntries);
   renderCumulativeSpend();
@@ -29,9 +26,7 @@ function renderViewDependentCharts() {
 export function renderAll() {
   state.markup = Math.max(0, parseFloat(document.getElementById('markup-input').value) || CONFIG_DEFAULT_MARKUP);
   localStorage.setItem('clauditor_markup', state.markup);
-  // Persist only a user-chosen "from" — the auto-filled earliest-data date
-  // (and an explicitly cleared field) store '' so it means "all time" and the
-  // prefill recomputes when new (possibly older) data is loaded
+
   const dateFrom = document.getElementById('date-from').value;
   localStorage.setItem('clauditor_date_from', dateFrom === state.autoDateFrom ? '' : dateFrom);
   renderViewDependentCharts();

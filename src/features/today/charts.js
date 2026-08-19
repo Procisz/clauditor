@@ -1,9 +1,6 @@
-// ─────────────────────────────────────────────
-// TODAY CHARTS — pie, hourly, response time, cache, timeline, cumulative, scatter
-// ─────────────────────────────────────────────
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { fmtMoney, fmtInt } from '../../core/utils.js';
 
 let chartTodayModel      = null;
@@ -57,7 +54,7 @@ function applyOrCreate(stored, elId, opts) {
 export function renderTodayModelPie(entries) {
   const map = new Map();
   for (const e of entries) {
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     map.set(e.model, (map.get(e.model) || 0) + cost);
   }
   const labels = [...map.keys()];
@@ -104,7 +101,7 @@ export function renderTodayHourlyChart(entries) {
   for (let h = 0; h < 24; h++) hourMap.set(String(h).padStart(2, '0') + ':00', 0);
   for (const e of entries) {
     const hour = (e.ts && e.ts.length >= 13) ? e.ts.slice(11, 13) + ':00' : '00:00';
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     hourMap.set(hour, (hourMap.get(hour) || 0) + cost);
   }
   const labels = [...hourMap.keys()];
@@ -192,7 +189,7 @@ export function renderTodayCacheChart(entries) {
 }
 
 export function renderSessionTimeline(entries) {
-  // Build session start/end bounds from entry timestamps
+
   const bounds = new Map();
   for (const e of entries) {
     if (!e.ts || e.ts.length < 16) continue;
@@ -207,7 +204,7 @@ export function renderSessionTimeline(entries) {
   const sessions = [...bounds.values()].sort((a, b) => a.startTs.localeCompare(b.startTs));
   const data = sessions.map(s => {
     const start = new Date(s.startTs).getTime();
-    const end   = Math.max(new Date(s.endTs).getTime(), start + 60000); // min 1 min
+    const end   = Math.max(new Date(s.endTs).getTime(), start + 60000);
     const label = (s.cwd || s.slug || '').split('/').pop() || 'session';
     return { x: label, y: [start, end], slug: s.slug, cwd: s.cwd, startTs: s.startTs, endTs: s.endTs };
   });
@@ -252,7 +249,7 @@ export function renderTodayCumulativeCost(entries) {
   const sorted = [...entries].filter(e => e.ts).sort((a, b) => a.ts.localeCompare(b.ts));
   let running = 0;
   const data = sorted.map(e => {
-    running += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    running += entryCost(e) * state.markup;
     return { x: new Date(e.ts).getTime(), y: +running.toFixed(6) };
   });
 
@@ -281,7 +278,7 @@ export function renderCallsScatter(entries) {
     .map(e => {
       const dt   = new Date(e.ts);
       const hour = +(dt.getHours() + dt.getMinutes() / 60).toFixed(3);
-      const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+      const cost = entryCost(e) * state.markup;
       return { x: hour, y: +cost.toFixed(6), z: Math.max(Math.round(e.output / 500), 2) };
     });
 

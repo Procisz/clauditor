@@ -1,9 +1,6 @@
-// ─────────────────────────────────────────────
-// OVERVIEW CHARTS — cost, token, cache, treemap, cumulative spend
-// ─────────────────────────────────────────────
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { projectKey, projectName, fmtMoney, fmtInt, fmtFixed } from '../../core/utils.js';
 import { getCurrentBucketKey } from '../../core/parser.js';
 import { todayKey, getMonthKey } from '../../core/dates.js';
@@ -128,7 +125,7 @@ export function renderTreemap(entries) {
   const map = new Map();
   for (const e of entries) {
     const key  = projectName(projectKey(e));
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     map.set(key, (map.get(key) || 0) + cost);
   }
 
@@ -166,7 +163,7 @@ export function renderCumulativeSpend() {
   const dayCosts = new Map();
   for (const e of state.allEntries) {
     if (!e.date.startsWith(thisMonth)) continue;
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     dayCosts.set(e.date, (dayCosts.get(e.date) || 0) + cost);
   }
 

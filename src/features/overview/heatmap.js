@@ -1,6 +1,3 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — activity heatmap (ApexCharts, 52-week GitHub-style)
-// ─────────────────────────────────────────────
 import { ApexCharts, getApexBaseOpts } from '../../core/charts.js';
 import { fmtMoney } from '../../core/utils.js';
 import { state } from '../../core/state.js';
@@ -17,15 +14,14 @@ export function resizeHeatmap() {
 
 function heatmapColors() {
   return document.documentElement.dataset.theme === 'winter'
-    ? ['#eef2ff', '#c7d2fb', '#818cf8', '#4f46e5', '#3730a3'] // indigo tints light
-    : ['#0f172a', '#1e1b4b', '#3730a3', '#6366f1', '#a5b4fc']; // indigo tints dark
+    ? ['#eef2ff', '#c7d2fb', '#818cf8', '#4f46e5', '#3730a3']
+    : ['#0f172a', '#1e1b4b', '#3730a3', '#6366f1', '#a5b4fc'];
 }
 
 export function renderHeatmap() {
   const el = document.getElementById('chart-heatmap');
   if (!el) return;
 
-  // ── Build cost-per-day map (local dates) ────
   const dayCosts = new Map();
   for (const e of state.allEntries) {
     const cost = calcCost({
@@ -38,27 +34,25 @@ export function renderHeatmap() {
   }
   const maxCost = Math.max(...dayCosts.values(), 0.001);
 
-  // ── Build 52-week grid (Mon-aligned) ─────────
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const daysToLastMonday = (today.getDay() + 6) % 7; // 0=Mon … 6=Sun
+  const daysToLastMonday = (today.getDay() + 6) % 7;
   const start = new Date(today);
-  start.setDate(start.getDate() - daysToLastMonday - 52 * 7); // Monday 52 weeks ago
+  start.setDate(start.getDate() - daysToLastMonday - 52 * 7);
 
   const weekMondays = [];
   for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 7)) {
     weekMondays.push(new Date(d));
   }
 
-  // ── 7 series Mon→Sun ──────────────────────────
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const series = DAY_NAMES.map((name, d) => ({
     name,
     data: weekMondays.map(monday => {
       const day = new Date(monday);
-      day.setDate(day.getDate() + d); // d=0 → Mon, d=6 → Sun
-      const x = dayKey(monday); // shared column key = week's Monday
+      day.setDate(day.getDate() + d);
+      const x = dayKey(monday);
       if (day > today) return { x, y: 0, date: null, cost: 0 };
       const dateStr = dayKey(day);
       const cost = dayCosts.get(dateStr) || 0;
@@ -103,7 +97,7 @@ export function renderHeatmap() {
       axisTicks:  { show: false },
       labels: {
         style: { colors: tick, fontSize: '10px' },
-        // Show month abbreviation only on the first week of each month
+
         formatter: val => {
           if (!val || val.length < 10) return '';
           const [, , dd] = val.split('-');
@@ -144,7 +138,6 @@ export function renderHeatmap() {
   chartHeatmap = new ApexCharts(el, opts);
   chartHeatmap.render();
 
-  // ── Custom "Less ■■■■■ More" legend ──────────
   const legendEl = document.getElementById('heatmap-legend');
   if (legendEl) {
     legendEl.innerHTML = ['Less', ...colors.map(c =>

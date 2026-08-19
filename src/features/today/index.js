@@ -1,6 +1,3 @@
-// ─────────────────────────────────────────────
-// TODAY — tab orchestrator, day navigation, renderTodayView
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
 import { todayKey, shiftDay } from '../../core/dates.js';
 import { renderTodayCards } from './cards.js';

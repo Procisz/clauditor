@@ -1,39 +1,26 @@
-// ─────────────────────────────────────────────
-// TODAY — sessions table with subagent breakdown
-// ─────────────────────────────────────────────
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, applySortHeaders } from '../../core/utils.js';
 
-// Palette ordered so consecutive indices are ≥63° apart on the hue wheel,
-// minimising the chance that two agents sharing nearby hash values look similar.
-// Hues: 225°(blue), 0°(red), 155°(green), 47°(yellow), 265°(purple),
-//       185°(cyan), 28°(orange), 325°(pink), 85°(lime), 295°(fuchsia)
 const AGENT_PALETTE = [
-  { cls: 'badge-primary',   rgba: 'rgba(108,142,245,.85)' },  // 0 main
-  { cls: 'badge-error',     rgba: 'rgba(248,113,113,.85)' },  // 1
-  { cls: 'badge-success',   rgba: 'rgba(52,211,153,.85)'  },  // 2
-  { cls: 'badge-warning',   rgba: 'rgba(251,191,36,.85)'  },  // 3
-  { cls: 'badge-secondary', rgba: 'rgba(167,139,250,.85)' },  // 4
-  { cls: 'badge-info',      rgba: 'rgba(34,211,238,.85)'  },  // 5
-  { cls: 'badge-accent',     rgba: 'rgba(251,146,60,.85)'  },  // 6
-  { cls: 'badge-neutral',    rgba: 'rgba(244,114,182,.85)' },  // 7
-  { cls: 'badge-ghost',      rgba: 'rgba(163,230,53,.85)'  },  // 8
-  { cls: 'badge-outline',    rgba: 'rgba(232,121,249,.85)' },  // 9
+  { cls: 'badge-primary',   rgba: 'rgba(108,142,245,.85)' },
+  { cls: 'badge-error',     rgba: 'rgba(248,113,113,.85)' },
+  { cls: 'badge-success',   rgba: 'rgba(52,211,153,.85)'  },
+  { cls: 'badge-warning',   rgba: 'rgba(251,191,36,.85)'  },
+  { cls: 'badge-secondary', rgba: 'rgba(167,139,250,.85)' },
+  { cls: 'badge-info',      rgba: 'rgba(34,211,238,.85)'  },
+  { cls: 'badge-accent',     rgba: 'rgba(251,146,60,.85)'  },
+  { cls: 'badge-neutral',    rgba: 'rgba(244,114,182,.85)' },
+  { cls: 'badge-ghost',      rgba: 'rgba(163,230,53,.85)'  },
+  { cls: 'badge-outline',    rgba: 'rgba(232,121,249,.85)' },
 ];
 
-function agentPaletteIndex(agentType) {
-  if (agentType === 'main') return 0;
-  let h = 0;
-  for (const c of (agentType || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
-  return 1 + (h % (AGENT_PALETTE.length - 1));
-}
 
-const activeBreakdowns = new Map(); // sid → { detailTr, chart }
+const activeBreakdowns = new Map();
 
 export function renderTodaySessionsTable(entries) {
-  // Clean up any open breakdowns from previous render
+
   for (const [, { detailTr, chart }] of activeBreakdowns) {
     if (chart) chart.destroy();
     if (detailTr.parentNode) detailTr.remove();
@@ -45,8 +32,10 @@ export function renderTodaySessionsTable(entries) {
     const key = e.sessionId || '(unknown)';
     if (!map.has(key)) map.set(key, { slug: e.slug, cwd: e.cwd, minTs: e.ts, calls: 0, input: 0, output: 0, cacheRead: 0, base: 0, breakdown: new Map() });
     const s = map.get(key);
+    if (e.slug && !s.slug) s.slug = e.slug;
+    if (e.cwd && !s.cwd) s.cwd = e.cwd;
     s.calls++; s.input += e.input; s.output += e.output; s.cacheRead += e.cacheRead;
-    const cost = calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    const cost = entryCost(e);
     s.base += cost;
     const bKey = (e.agentType || 'main') + '|' + e.model;
     if (!s.breakdown.has(bKey)) s.breakdown.set(bKey, { agentType: e.agentType || 'main', model: e.model, calls: 0, output: 0, base: 0 });
@@ -54,7 +43,6 @@ export function renderTodaySessionsTable(entries) {
     b.calls++; b.output += e.output; b.base += cost;
   }
 
-  // Build per-session avg response time from allDurations
   const sessionDurations = new Map();
   for (const d of state.allDurations) {
     if (d.date !== state.selectedDate) continue;
@@ -89,8 +77,6 @@ export function renderTodaySessionsTable(entries) {
       const hasSubagents = agentTypes.size > 1 || !agentTypes.has('main');
       const tr = domEl('tr');
 
-      // Name goes in an inner ellipsized span so a long title can't clip the
-      // agents-toggle badge appended next to it
       const nm = sessionName(sid === '(unknown)' ? '' : sid, d.slug);
       const slugCell = domEl('td', 'mono');
       slugCell.appendChild(domText('span', 'session-name', nm));
@@ -133,7 +119,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     activeBreakdowns.delete(sid);
     const badge = parentTr.querySelector('[data-role="agents-toggle"]');
     if (badge) badge.textContent = badge.textContent.replace('▾', '▸');
-    // Animate shut, then clean up
+
     const wrap = detailTr.querySelector('.expand-wrap');
     const cleanup = (() => {
       let fired = false;
@@ -154,14 +140,12 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     return;
   }
 
-  // Build expanded detail row
   const detailTr = domEl('tr', 'breakdown-row');
   const td = domEl('td');
   td.colSpan = 10;
 
   const inner = domEl('div', 'breakdown-inner');
 
-  // ── Left: breakdown table ──
   const tableWrap = domEl('div');
   tableWrap.style.flex = '1';
   const tbl = domEl('table', 'breakdown-table');
@@ -176,8 +160,6 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
   const tbdy = domEl('tbody');
   const bRows = [...d.breakdown.values()].sort((a, b) => b.base - a.base);
 
-  // Assign colors by position within this session (main=0, others=1,2,3…)
-  // Guarantees no two agents in the same breakdown share a color.
   const sessionColorIdx = new Map();
   let ci = 0;
   const mainRow = bRows.find(b => b.agentType === 'main');
@@ -207,7 +189,6 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
   tableWrap.appendChild(tbl);
   inner.appendChild(tableWrap);
 
-  // ── Right: donut chart ──
   const chartWrap = domEl('div', 'breakdown-chart');
   inner.appendChild(chartWrap);
   const wrap = domEl('div', 'expand-wrap');
@@ -219,7 +200,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
   parentTr.insertAdjacentElement('afterend', detailTr);
   const openNow = () => wrap.classList.add('expand-open');
   requestAnimationFrame(() => requestAnimationFrame(openNow));
-  setTimeout(openNow, 80);  // rAF is throttled in hidden tabs
+  setTimeout(openNow, 80);
 
   const agentTotals = new Map();
   for (const b of bRows) agentTotals.set(b.agentType, (agentTotals.get(b.agentType) || 0) + b.base * state.markup);

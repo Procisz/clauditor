@@ -1,10 +1,7 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — model and projects tables
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtInt, badgeClass, applySortHeaders, buildPaginator, projectKey, projectName } from '../../core/utils.js';
-import { getModelPanel, isModelPanelOpen, buildModelSessionsRow, getProjectPanel, isProjectPanelOpen, buildProjectSessionsRow, collapsePanelRow } from './model-sessions.js';
+import { getModelPanel, isModelPanelOpen, buildModelSessionsRow, getProjectPanel, isProjectPanelOpen, buildProjectSessionsRow, collapsePanelRow, EFFORT_RANK } from './model-sessions.js';
 
 export function renderModelTable(entries) {
   const totalEl = document.getElementById('model-sessions-total');
@@ -28,8 +25,7 @@ export function renderModelTable(entries) {
     if (eff.size === 0) {
       effortEl.textContent = '';
     } else {
-      const order = { low: 1, medium: 2, high: 3, xhigh: 4, max: 5 };
-      const parts = [...eff.entries()].sort((a, b) => (order[b[0]] || 0) - (order[a[0]] || 0))
+      const parts = [...eff.entries()].sort((a, b) => (EFFORT_RANK[b[0]] || 0) - (EFFORT_RANK[a[0]] || 0))
         .map(([k, c]) => `${k} ${fmtNum(c)}`);
       effortEl.textContent = '· effort: ' + parts.join(' · ');
       effortEl.title = 'Calls per reasoning-effort level in the current date range'
@@ -46,14 +42,14 @@ export function renderModelTable(entries) {
     m.output     += e.output;
     m.cacheWrite += e.cacheWrite;
     m.cacheRead  += e.cacheRead;
-    m.base       += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    m.base       += entryCost(e);
   }
 
   const sortCol = state.tableSortCols['table-models'];
   const sortDir = state.tableSortDirs['table-models'] || 0;
   const rows = [...map.entries()];
   if (sortDir === 0 || sortCol === undefined) {
-    rows.sort((a, b) => b[1].base - a[1].base);  // default: highest final cost first
+    rows.sort((a, b) => b[1].base - a[1].base);
   } else {
     const val = ([model, d]) => [model.toLowerCase(), d.calls, d.input, d.output, d.cacheWrite, d.cacheRead, d.base, d.base * state.markup][sortCol];
     rows.sort((a, b) => {
@@ -105,10 +101,9 @@ export function renderProjectsTable(entries) {
     const p = map.get(key);
     p.sessions.add(e.sessionId);
     p.calls++;
-    p.base += calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    p.base += entryCost(e);
   }
 
-  // Sort: three-state per column, neutral = highest final cost first
   const sortCol = state.tableSortCols['table-projects'];
   const sortDir = state.tableSortDirs['table-projects'] || 0;
   const rows = [...map.entries()];
@@ -124,7 +119,6 @@ export function renderProjectsTable(entries) {
   }
   applySortHeaders('table-projects');
 
-  // Pagination — no row cap, shared paginator component
   const p = state.projectsPage;
   const maxPage = Math.max(0, Math.ceil(rows.length / p.pageSize) - 1);
   if (p.pageIndex > maxPage) p.pageIndex = maxPage;

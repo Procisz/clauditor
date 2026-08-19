@@ -5,7 +5,6 @@ const fs = require('fs/promises')
 
 const appIcon = nativeImage.createFromPath(path.join(__dirname, '../assets/clauditor-icon.png'))
 
-// ─── Read-only filesystem bridge, restricted to the two Claude data roots ───
 const CLAUDE_PROJECTS = path.join(os.homedir(), '.claude', 'projects')
 const COWORK_STORE = path.join(app.getPath('appData'), 'Claude', 'local-agent-mode-sessions')
 const ROOTS = [CLAUDE_PROJECTS, COWORK_STORE]
@@ -27,7 +26,7 @@ ipcMain.handle('clauditor:read', async (_e, filePath) => {
   try {
     return await fs.readFile(assertAllowed(filePath), 'utf8')
   } catch (e) {
-    if (e.code === 'ENOENT') return null  // probing for optional sidecar files is normal
+    if (e.code === 'ENOENT') return null
     throw e
   }
 })
@@ -49,8 +48,6 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, '../dist/Clauditor.html'))
 
-  // Release the reference so the renderer process and all its resources
-  // can be garbage-collected immediately after the window closes.
   win.on('closed', () => { win = null })
 }
 

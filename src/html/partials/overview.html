@@ -1,4 +1,3 @@
-<!-- View: Overview -->
 <div id="view-overview">
 
   <div id="estimate-note" class="flex items-center gap-2 text-xs mb-5" style="background:color-mix(in oklch,var(--color-warning)12%,transparent);border:1px solid color-mix(in oklch,var(--color-warning)35%,transparent);border-radius:0.5rem;padding:0.4rem 0.75rem;color:var(--color-base-content);opacity:0.8;">
@@ -7,11 +6,9 @@
     <button class="note-close btn btn-ghost btn-xs btn-circle ml-auto shrink-0" aria-label="Dismiss note" title="Dismiss — hides this note for one month">✕</button>
   </div>
 
-  <!-- Summary cards -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5" id="cards"></div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5" id="cards"></div>
 
-  <!-- Burn rate -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
+    <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
     <div class="card-body p-4 gap-3">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h3 class="card-title text-base">Monthly Budget <span id="budget-info" class="flex items-center"></span></h3>
@@ -25,8 +22,7 @@
     </div>
   </div>
 
-  <!-- Model table -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Model Breakdown <span id="model-sessions-total" class="text-sm font-normal opacity-50"></span> <span id="model-effort-mix" class="text-sm font-normal opacity-50"></span></h3>
       <div class="overflow-x-auto">
@@ -49,8 +45,7 @@
     </div>
   </div>
 
-  <!-- Projects treemap + table -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Top Projects by Cost</h3>
       <div id="chart-treemap"></div>
@@ -72,8 +67,7 @@
     </div>
   </div>
 
-  <!-- Activity heatmap -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Activity Heatmap <span class="text-sm font-normal opacity-50">(final cost per day, last 52 weeks)</span></h3>
       <div id="chart-heatmap"></div>
@@ -81,8 +75,7 @@
     </div>
   </div>
 
-  <!-- Cost over time -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <div class="flex items-center flex-wrap gap-3 justify-between">
         <h3 class="card-title text-base">Cost Over Time <span class="text-sm font-normal opacity-50">(final, incl. markup)</span></h3>
@@ -105,8 +98,7 @@
     </div>
   </div>
 
-  <!-- Day/Week/Month detail panel -->
-  <div id="detail-panel" class="card bg-base-100 card-border border-base-300 mb-4" style="display:none">
+    <div id="detail-panel" class="card bg-base-100 card-border border-base-300 mb-4" style="display:none">
     <div class="card-body p-4 gap-3">
       <div class="flex items-center justify-between">
         <h3 class="card-title text-base" id="detail-title"></h3>
@@ -132,28 +124,25 @@
     </div>
   </div>
 
-  <!-- Token breakdown -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Token Breakdown</h3>
       <div class="chart-wrap"><div id="chart-tokens"></div></div>
     </div>
   </div>
 
-  <!-- Cache efficiency -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Cache Efficiency <span class="text-sm font-normal opacity-50">(cache read % = money saved)</span></h3>
       <div class="chart-wrap"><div id="chart-cache"></div></div>
     </div>
   </div>
 
-  <!-- Monthly burn-up -->
-  <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Monthly Burn-up <span class="text-sm font-normal opacity-50">(cumulative spend vs budget pace)</span></h3>
       <div id="chart-cumulative"></div>
     </div>
   </div>
 
-</div><!-- /view-overview -->
+</div>

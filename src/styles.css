@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
-/* ── Light theme: winter ── */
 @plugin "daisyui/theme" {
   name: "winter";
   default: true;
@@ -37,7 +36,6 @@
   --noise: 0;
 }
 
-/* ── Dark theme: dracula ── */
 @plugin "daisyui/theme" {
   name: "dracula";
   default: false;
@@ -73,17 +71,14 @@
   --noise: 0;
 }
 
-/* ── Chart containers ── */
 .chart-wrap        { position: relative; }
 .chart-wrap-sm     { position: relative; }
 .chart-wrap-lg     { position: relative; }
 .chart-wrap-radial { position: relative; }
 
-/* ── ApexCharts theme integration ── */
 .apexcharts-canvas { background: transparent !important; }
 .apexcharts-tooltip { border-radius: 8px !important; font-size: 12px !important; }
 
-/* Tooltip colors respond to data-theme switches without chart recreation */
 [data-theme="winter"] .apexcharts-tooltip {
   background: #ffffff !important;
   border-color: #dde3f0 !important;
@@ -110,7 +105,6 @@
   color: inherit !important;
 }
 
-/* ── Heatmap cell strokes ── */
 .apexcharts-heatmap-rect {
   transition: filter 0.1s, stroke-width 0.1s;
 }
@@ -131,8 +125,6 @@
   stroke-width: 2px !important;
 }
 
-
-/* ── Subagent breakdown ── */
 .breakdown-row td   { padding: 0 !important; }
 .breakdown-inner    { display: flex; gap: 24px; padding: 20px 24px; align-items: flex-start; background: var(--color-base-100); box-shadow: inset 0 4px 12px oklch(0% 0 0 / 4%); border-top: 1px solid var(--color-base-300); border-bottom-left-radius: var(--radius-box); border-bottom-right-radius: var(--radius-box); }
 .breakdown-table    { width: 100%; font-size: 12px; border-collapse: collapse; }
@@ -142,13 +134,11 @@
 .breakdown-table tbody tr:hover { background: var(--color-base-300); }
 .breakdown-chart    { width: 160px; height: 160px; flex-shrink: 0; }
 
-/* ── Expand/collapse animation (all expansion panels) ── */
 .expand-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.25s ease; }
 .expand-wrap.expand-open { grid-template-rows: 1fr; }
 .expand-wrap > .expand-content { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .expand-wrap { transition: none; } }
 
-/* ── Model breakdown expansion panel ── */
 #table-models tbody tr.model-row { cursor: pointer; }
 #table-models tbody tr.model-row:hover { background: var(--color-base-200); }
 #table-projects tbody tr.project-row { cursor: pointer; }
@@ -170,7 +160,6 @@ span.session-name { display: inline-block; vertical-align: bottom; }
 .model-sessions-table td.session-name { font-weight: 500; }
 .model-paginator .btn:disabled { opacity: .25; }
 
-/* ── Sortable table arrows ── */
 table[data-sortable] thead th.sortable        { cursor: pointer; user-select: none; }
 table[data-sortable] th.sortable::after       { content: ' ⇅'; font-size: 9px; opacity: .3; }
 table[data-sortable] th.sort-asc::after       { content: ' ▲'; font-size: 9px; opacity: 1; }
@@ -178,22 +167,17 @@ table[data-sortable] th.sort-desc::after      { content: ' ▼'; font-size: 9px;
 table[data-sortable] th.sort-asc,
 table[data-sortable] th.sort-desc             { color: var(--color-primary); }
 
-/* ── Burn rate bar ── */
 .burn-bar-fill {
   height: 100%; border-radius: 99px;
   transition: width .4s ease, background .4s ease;
 }
 
-
-/* ── Custom badge colors (agent palette overflow) ── */
 .badge-orange  { background-color: oklch(72% 0.17 60);  color: oklch(15% 0.02 60);  border-color: oklch(72% 0.17 60); }
 .badge-pink    { background-color: oklch(73% 0.18 340); color: oklch(15% 0.02 340); border-color: oklch(73% 0.18 340); }
 .badge-lime    { background-color: oklch(80% 0.18 130); color: oklch(15% 0.02 130); border-color: oklch(80% 0.18 130); }
 .badge-fuchsia { background-color: oklch(68% 0.22 310); color: oklch(15% 0.02 310); border-color: oklch(68% 0.22 310); }
 
-/* ── Misc ── */
 .num    { text-align: right; font-variant-numeric: tabular-nums; }
 .mono   { font-family: monospace; font-size: 12px; opacity: .55; }
 #dashboard { display: none; }
 #loading   { display: none; }
-

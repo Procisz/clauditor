@@ -1,12 +1,5 @@
-// ─────────────────────────────────────────────
-// LOADER — reads data sources into state and presents the dashboard.
-// The two sources (srcCode = Claude Code logs + archive, srcCowork = the
-// Desktop app's Cowork store) are loaded independently and assembled just
-// before rendering, so browsing one source never wipes the other and the
-// dashboard only appears when explicitly presented.
-// ─────────────────────────────────────────────
 import { collectJsonlFiles, readJsonlFile } from './fs.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, entryKey } from './parser.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, entryKey, parseJsonlLines } from './parser.js';
 import { state } from './state.js';
 import { showLoading, hideLoading, showDashboard, showError, hideError, updatePricingWarning, updateCoworkWarning } from './utils.js';
 import { getArchiveHandle, readArchive, writeArchive } from './archive.js';
@@ -16,19 +9,6 @@ import { getUnknownModels } from './config.js';
 let _renderCallback = null;
 export function setRenderCallback(fn) { _renderCallback = fn; }
 
-function parseLines(text) {
-  const records = [];
-  for (const line of text.split('\n')) {
-    const l = line.trim();
-    if (!l) continue;
-    try { records.push(JSON.parse(l)); } catch {}
-  }
-  return records;
-}
-
-// ─── Source loaders — fill state.srcCode / state.srcCowork, no rendering ───
-
-// Claude Code logs (+ archive history) from a directory handle
 export async function loadCodeData(dirHandle) {
   const archiveHandle = await getArchiveHandle().catch(() => null);
   const dateFrom = localStorage.getItem('clauditor_date_from') || '';
@@ -48,7 +28,6 @@ export async function loadCodeData(dirHandle) {
   return { files: files.length, entries: src.entries.length };
 }
 
-// Same, from a webkitdirectory FileList (Safari / fallback input)
 export async function loadCodeDataFromFiles(all) {
   const archiveHandle = await getArchiveHandle().catch(() => null);
   const dateFrom = localStorage.getItem('clauditor_date_from') || '';
@@ -56,7 +35,6 @@ export async function loadCodeDataFromFiles(all) {
   const { entries, durations, titles } = await readArchive(archiveHandle, fromMonth);
   const src = { entries: [...entries], durations: [...durations], titles: new Map(titles), liveSids: new Set() };
 
-  // Resolve subagent type names from .meta.json sidecars first
   const metaMap = new Map();
   for (const file of all) {
     const path = file.webkitRelativePath;
@@ -72,7 +50,7 @@ export async function loadCodeDataFromFiles(all) {
     const path = file.webkitRelativePath;
     const isSubagent = path.includes('/subagents/');
     const agentType = isSubagent ? (metaMap.get(path.replace('.jsonl', '')) || 'agent') : 'main';
-    const records = parseLines(await file.text());
+    const records = parseJsonlLines(await file.text());
     src.entries.push(...parseEntries(records, agentType));
     src.durations.push(...parseDurations(records));
     for (const [sid, t] of parseSessionTitles(records)) { src.titles.set(sid, t); src.liveSids.add(sid); }
@@ -82,11 +60,6 @@ export async function loadCodeDataFromFiles(all) {
   return { files: jsonlFiles.length, entries: src.entries.length };
 }
 
-// Cowork store from a webkitdirectory FileList. Each task keeps usage in TWO
-// places, read both (entries dedupe globally by message id at present time):
-//   …/local_<taskId>/audit.jsonl          signed transcript mirror
-//   …/local_<taskId>/.claude/**/*.jsonl   full Claude Code tree incl. subagents
-// Title comes from the sibling …/local_<taskId>.json metadata file.
 export async function loadCoworkData(fileList) {
   const all = Array.from(fileList);
   const src = { entries: [], durations: [], titles: new Map() };
@@ -97,7 +70,7 @@ export async function loadCoworkData(fileList) {
     const parts = af.webkitRelativePath.split('/');
     const dirName = parts[parts.length - 2];
     const taskId = dirName.replace(/^local_/, '');
-    src.entries.push(...parseCoworkEntries(parseLines(await af.text()), taskId));
+    src.entries.push(...parseCoworkEntries(parseJsonlLines(await af.text()), taskId));
     const mf = metaByPath.get(parts.slice(0, -2).join('/') + '/' + dirName + '.json');
     if (mf) {
       try {
@@ -117,9 +90,9 @@ export async function loadCoworkData(fileList) {
       agentType = 'agent';
       if (mf) { try { agentType = JSON.parse(await mf.text()).agentType || 'agent'; } catch {} }
     }
-    const records = parseLines(await tf.text());
+    const records = parseJsonlLines(await tf.text());
     for (const e of parseEntries(records, agentType)) {
-      e.sessionId = taskId;                 // group the whole task as one session
+      e.sessionId = taskId;
       e.sessionKind = 'cowork';
       e.entrypoint = 'claude-desktop';
       src.entries.push(e);
@@ -133,8 +106,6 @@ export async function loadCoworkData(fileList) {
   return { tasks, entries: src.entries.length };
 }
 
-// ─── Assembly + presentation ────────────────
-
 export function assembleState() {
   const code = state.srcCode, cw = state.srcCowork;
   state.allEntries   = [...(code ? code.entries : []), ...(cw ? cw.entries : [])];
@@ -145,7 +116,6 @@ export function assembleState() {
   state.liveTitleSids = new Set([...(code ? code.liveSids : []), ...(cw ? cw.titles.keys() : [])]);
 }
 
-// Assemble sources, render, show the dashboard, persist to the archive
 export async function presentDashboard(showRefresh = state.srcCodeFromHandle) {
   assembleState();
   finishLoading(showRefresh);
@@ -154,9 +124,7 @@ export async function presentDashboard(showRefresh = state.srcCodeFromHandle) {
 }
 
 function finishLoading(showRefresh) {
-  // Deduplicate by message ID; keep entry with highest output token count
-  // (streaming writes partial snapshots of the same message — the max-output
-  // one is the final version)
+
   const msgMap = new Map();
   for (const e of state.allEntries) {
     const key = entryKey(e);
@@ -170,10 +138,7 @@ function finishLoading(showRefresh) {
   updateCoworkWarning();
 
   const todayStr = todayKey();
-  // The "from" field is prefilled with the earliest loaded date — visually the
-  // real start of the data, effectively no filter. Only a user-chosen date is
-  // persisted (renderAll stores '' while the value equals the auto-fill), so
-  // loading older data later can never be silently hidden.
+
   let earliest = '';
   for (const e of state.allEntries) {
     if (e.date && (!earliest || e.date < earliest)) earliest = e.date;
@@ -197,9 +162,6 @@ function finishLoading(showRefresh) {
   }, 100);
 }
 
-// ─── Compat wrappers — load and present in one step ─────────────────────────
-// Used by the auto-restore on startup, re-authorize, Refresh, and Electron.
-
 export async function loadAndRender(dirHandle) {
   hideError();
   showLoading('Scanning files…');
@@ -213,9 +175,6 @@ export async function loadAndRender(dirHandle) {
   }
 }
 
-// Fallback for browsers without showDirectoryPicker (e.g. Safari) using
-// <input webkitdirectory> — loads Code logs AND any Cowork audit files in
-// the picked tree, then presents immediately.
 export async function loadFromFileInput(fileList) {
   hideError();
   showLoading('Scanning files…');

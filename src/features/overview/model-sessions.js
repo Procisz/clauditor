@@ -1,10 +1,7 @@
-// ─────────────────────────────────────────────
-// OVERVIEW — expandable per-model sessions panel + session detail modal
-// ─────────────────────────────────────────────
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { sessionType, sessionOrigin } from '../../core/parser.js';
-import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName } from '../../core/utils.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtInt, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName } from '../../core/utils.js';
 
 const COLUMNS = [
   { key: 'name',   label: 'Session',    cls: '' },
@@ -21,39 +18,28 @@ const COLUMNS = [
 function typeBadgeClass(type) {
   if (type === 'Cowork') return 'badge-accent';
   if (type === 'Chat')   return 'badge-ghost';
-  return 'badge-info';   // Code
+  return 'badge-info';
 }
 
-// Reasoning-effort levels: rank order + badge colors. The field is per-call
-// and only exists on newer log records — sessions can mix levels or have none.
 export const EFFORT_RANK = { low: 1, medium: 2, high: 3, xhigh: 4, max: 5 };
 
 export function effortBadgeClass(level) {
   if (level === 'max')   return 'badge-error';
   if (level === 'xhigh') return 'badge-warning';
   if (level === 'high')  return 'badge-info';
-  return 'badge-ghost';  // medium / low / anything new
+  return 'badge-ghost';
 }
 
 function effortsSorted(effMap) {
   return [...effMap.entries()].sort((a, b) => (EFFORT_RANK[b[0]] || 0) - (EFFORT_RANK[a[0]] || 0));
 }
 
-function entryCost(e) {
-  return calcCost({ input_tokens: e.input, output_tokens: e.output, cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
-}
-
-// Panel UI state (open/sort/page) lives in state.modelPanels so panels
-// survive re-renders (markup change, date filter, theme toggle, outer sort).
-// Keys are namespaced — 'm:'+model for Model Breakdown, 'p:'+projectKey for
-// Top Projects — and prefixed because names come from log data: a model
-// literally named '__proto__' must not hit Object.prototype.
 const panelId = (ns, key) => ns + ':' + key;
 
 function getPanel(ns, key) {
   const k = panelId(ns, key);
   if (!Object.prototype.hasOwnProperty.call(state.modelPanels, k)) {
-    // sortDir: 1 asc | -1 desc | 0 neutral (falls back to the default: newest first)
+
     state.modelPanels[k] = { open: false, sortCol: 'date', sortDir: -1, pageSize: 5, pageIndex: 0 };
   }
   return state.modelPanels[k];
@@ -101,7 +87,7 @@ function sessionsWhere(entries, pred) {
 }
 
 function sortSessions(list, p) {
-  const col = p.sortDir === 0 ? 'date' : p.sortCol;  // neutral = default: newest first
+  const col = p.sortDir === 0 ? 'date' : p.sortCol;
   const dir = p.sortDir === 0 ? -1 : p.sortDir;
   const cmp = {
     name:   (a, b) => a.name.localeCompare(b.name),
@@ -127,7 +113,6 @@ function fmtDateTime(ts, opts) {
   return d.toLocaleString(undefined, opts || { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// The <tr> injected right below a model/project row (colspan = outer table width)
 export function buildModelSessionsRow(model, entries) { return buildSessionsRow('m', model, entries, 8); }
 export function buildProjectSessionsRow(key, entries) { return buildSessionsRow('p', key, entries, 5); }
 
@@ -137,23 +122,20 @@ function buildSessionsRow(ns, key, entries, colSpan) {
   td.colSpan = colSpan;
   renderPanel(td, ns, key, entries);
   tr.appendChild(td);
-  // Animate only a fresh user-initiated open; panels re-mounted by an
-  // unrelated table re-render appear already expanded, without re-animating
+
   const p = getPanel(ns, key);
   const wrap = td.firstElementChild;
   if (p.justOpened) {
     p.justOpened = false;
     const openNow = () => wrap.classList.add('expand-open');
     requestAnimationFrame(() => requestAnimationFrame(openNow));
-    setTimeout(openNow, 80);  // rAF is throttled in hidden tabs — never leave the panel stuck shut
+    setTimeout(openNow, 80);
   } else {
     wrap.classList.add('expand-open');
   }
   return tr;
 }
 
-// Animate a panel row shut, then run done() (which re-renders the table).
-// outerTr is the model/project row whose panel sits right below it.
 export function collapsePanelRow(outerTr, done) {
   const panelRow = outerTr.nextElementSibling;
   const wrap = panelRow && panelRow.classList.contains('model-sessions-row')
@@ -163,12 +145,11 @@ export function collapsePanelRow(outerTr, done) {
   let fired = false;
   const finish = () => { if (!fired) { fired = true; done(); } };
   wrap.addEventListener('transitionend', finish, { once: true });
-  setTimeout(finish, 320);  // fallback: reduced motion / interrupted transition
+  setTimeout(finish, 320);
 }
 
 function renderPanel(td, ns, key, entries) {
-  // Content lives in a persistent animation wrapper so in-panel re-renders
-  // (sort, pagination) never restart the expand transition
+
   let wrap = td.firstElementChild;
   let content;
   if (wrap && wrap.classList.contains('expand-wrap')) {
@@ -193,7 +174,6 @@ function renderPanel(td, ns, key, entries) {
 
   const inner = domEl('div', 'model-sessions-inner');
 
-  // Caption
   const caption = domEl('div', 'flex items-center gap-2 text-xs opacity-60 mb-1');
   if (ns === 'm') {
     caption.appendChild(domText('span', '', 'Sessions using'));
@@ -205,7 +185,6 @@ function renderPanel(td, ns, key, entries) {
   caption.appendChild(domText('span', '', `— ${total} session${total !== 1 ? 's' : ''} · click a row for details`));
   inner.appendChild(caption);
 
-  // Sessions sub-table
   const tbl = domEl('table', 'table table-sm model-sessions-table');
   tbl.dataset.sortable = '';
   const thead = domEl('thead');
@@ -269,8 +248,7 @@ function renderPanel(td, ns, key, entries) {
     cacheCell.title = `${fmtNum(s.cacheRead)} tokens read from cache`;
     str.appendChild(cacheCell);
     str.appendChild(domCell('num', fmtMoney(s.base * state.markup, 4)));
-    // '(unknown)' groups entries that have no sessionId — opening a modal for
-    // them would merge every session-less record in history into one fake session
+
     if (s.rawSid) str.onclick = () => openSessionModal(s.rawSid);
     else str.classList.add('no-detail');
     tbody.appendChild(str);
@@ -282,10 +260,6 @@ function renderPanel(td, ns, key, entries) {
 
   content.appendChild(inner);
 }
-
-// ─── Session detail modal ────────────────────
-// Whole-session view: aggregates EVERY entry of the session from state
-// (all models, all agents, full history — not just the clicked model slice).
 
 let modalEl = null;
 let modalBox = null;
@@ -305,12 +279,11 @@ function ensureModal() {
   document.body.appendChild(modalEl);
 }
 
-// Vivid, theme-agnostic accents (same family as the agent palette)
 const BAR_COLORS = {
-  input:      'rgba(108,142,245,.9)',   // blue
-  output:     'rgba(167,139,250,.9)',   // purple
-  cacheWrite: 'rgba(251,191,36,.9)',    // amber
-  cacheRead:  'rgba(52,211,153,.9)',    // green
+  input:      'rgba(108,142,245,.9)',
+  output:     'rgba(167,139,250,.9)',
+  cacheWrite: 'rgba(251,191,36,.9)',
+  cacheRead:  'rgba(52,211,153,.9)',
 };
 
 function statCard(label, value, color, sub) {
@@ -365,19 +338,18 @@ function metaItem(label, value) {
 }
 
 export function openSessionModal(sid) {
-  if (!sid) return;  // '' would match every session-less entry in history
+  if (!sid) return;
   ensureModal();
   const all = state.allEntries.filter(e => e.sessionId === sid);
   if (all.length === 0) return;
   const durations = state.allDurations.filter(d => d.sessionId === sid);
 
-  // Aggregate
   const t = { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 };
-  const models = new Map();   // model → { calls, tokens, base }
-  const agents = new Map();   // agentType → { calls, base }
-  const efforts = new Map();  // effort level → { calls, base }
+  const models = new Map();
+  const agents = new Map();
+  const efforts = new Map();
   let effortUnknown = 0;
-  let peakContext = 0;        // largest prompt (input + cache) of any single call
+  let peakContext = 0;
   const days = new Set();
   let minTs = '', maxTs = '', slug = '', cwd = '', entrypoint = '', kind = 'code';
   for (const e of all) {
@@ -421,7 +393,6 @@ export function openSessionModal(sid) {
   for (const e of state.allEntries) grandBase += entryCost(e);
   const share = grandBase > 0 ? (t.base / grandBase) * 100 : 0;
 
-  // Build content
   domClear(modalBox);
 
   const head = domEl('div', 'flex items-start justify-between gap-3');
@@ -444,7 +415,6 @@ export function openSessionModal(sid) {
   head.appendChild(closeBtn);
   modalBox.appendChild(head);
 
-  // Stat cards
   const grid = domEl('div', 'grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4');
   grid.appendChild(statCard('Final Cost', fmtMoney(t.base * state.markup, 4), 'primary',
     state.markup !== 1 ? `base ${fmtMoney(t.base, 4)} × ${state.markup}` : 'no markup applied'));
@@ -460,7 +430,6 @@ export function openSessionModal(sid) {
     respMax > 0 ? `slowest ${fmtDuration(respMax)}` : ''));
   modalBox.appendChild(grid);
 
-  // Token distribution
   modalBox.appendChild(sectionTitle('Token Distribution'));
   modalBox.appendChild(tokenBar([
     { label: 'Input',       value: t.input,      color: BAR_COLORS.input },
@@ -469,7 +438,6 @@ export function openSessionModal(sid) {
     { label: 'Cache read',  value: t.cacheRead,  color: BAR_COLORS.cacheRead },
   ]));
 
-  // Per-model breakdown
   modalBox.appendChild(sectionTitle('Models'));
   const mtbl = domEl('table', 'table table-sm');
   const mhead = domEl('thead');
@@ -493,7 +461,6 @@ export function openSessionModal(sid) {
   mtbl.appendChild(mbody);
   modalBox.appendChild(mtbl);
 
-  // Per-agent breakdown (only when subagents exist)
   if (agents.size > 1 || !agents.has('main')) {
     modalBox.appendChild(sectionTitle('Agents'));
     const arow = domEl('div', 'flex flex-wrap gap-2');
@@ -506,7 +473,6 @@ export function openSessionModal(sid) {
     modalBox.appendChild(arow);
   }
 
-  // Per-effort breakdown (newer logs only — older records carry no effort field)
   if (efforts.size > 0) {
     modalBox.appendChild(sectionTitle('Effort'));
     const erow = domEl('div', 'flex flex-wrap gap-2');
@@ -525,7 +491,6 @@ export function openSessionModal(sid) {
     modalBox.appendChild(erow);
   }
 
-  // Meta footer
   modalBox.appendChild(sectionTitle('Timeline'));
   const meta = domEl('div', 'grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-xs');
   meta.appendChild(metaItem('Started', fmtDateTime(minTs)));
@@ -537,7 +502,7 @@ export function openSessionModal(sid) {
   meta.appendChild(metaItem('Base cost', fmtMoney(t.base, 4)));
   meta.appendChild(metaItem('Share of total spend', fmtFixed(share, 2) + '%'));
   if (peakContext > 0) {
-    // Window size is inferred: 200k standard, 1M when the peak proves it
+
     const win = peakContext > 200_000 ? 1_000_000 : 200_000;
     const ctxItem = metaItem('Peak context use',
       `${fmtNum(peakContext)} · ~${fmtFixed(peakContext / win * 100, 1)}% of ${fmtNum(win)}`);

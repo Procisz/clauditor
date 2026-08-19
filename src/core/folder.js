@@ -1,13 +1,9 @@
-// ─────────────────────────────────────────────
-// FOLDER — data-source browsing, statuses, re-authorization
-// ─────────────────────────────────────────────
 import { saveHandle, loadHandle } from './db.js';
 import { loadAndRender, loadCodeData, loadCodeDataFromFiles, loadCoworkData, presentDashboard } from './loader.js';
 import { state } from './state.js';
 import { showError, domEl, domText, domClear, fmtInt } from './utils.js';
 import { hasNativeBridge, nativeInit } from './native.js';
 
-// ─── Source status feedback on the start page ───
 function setStatus(id, kind, msg) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -24,7 +20,6 @@ function updateOpenButton() {
   if (b) b.disabled = !(state.srcCode || state.srcCowork);
 }
 
-// ─── Claude Code source ───
 export async function browseCodeFolder() {
   if (!('showDirectoryPicker' in window)) {
     document.getElementById('file-input-fallback').click();
@@ -46,10 +41,6 @@ export async function browseCodeFolder() {
   updateOpenButton();
 }
 
-// Fallback for browsers without showDirectoryPicker (Safari, some file://
-// contexts): the classic input stages the source exactly like the picker path
-// — status + Open Dashboard, never auto-presenting. Cowork audit files inside
-// the picked tree are picked up too.
 export async function onCodeFilesPicked(fileList) {
   const input = document.getElementById('file-input-fallback');
   try {
@@ -70,7 +61,6 @@ export async function onCodeFilesPicked(fileList) {
   updateOpenButton();
 }
 
-// ─── Cowork source (classic picker — Chrome blocks handles under ~/Library) ───
 export function browseCoworkFolder() {
   document.getElementById('cowork-input')?.click();
 }
@@ -88,11 +78,10 @@ export async function onCoworkPicked(fileList) {
   } catch (e) {
     setStatus('status-cowork', 'err', e.message);
   }
-  if (input) input.value = '';  // same folder can be re-picked later
+  if (input) input.value = '';
   updateOpenButton();
 }
 
-// ─── Dashboard trigger + returning to the sources page ───
 export async function openDashboard() {
   await presentDashboard();
 }
@@ -101,7 +90,7 @@ export function showSources() {
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('loading').style.display = 'none';
   const cw = document.getElementById('cowork-warning');
-  if (cw) cw.style.display = 'none';  // the sources page itself is the fix
+  if (cw) cw.style.display = 'none';
   document.getElementById('reauth-box').style.display = 'none';
   document.getElementById('fresh-select-box').style.display = 'flex';
   document.getElementById('welcome').style.display = 'flex';
@@ -110,7 +99,6 @@ export function showSources() {
   updateOpenButton();
 }
 
-// ─── Re-authorization + refresh (load and present in one step) ───
 export async function reauthorize() {
   try {
     const handle = await loadHandle();
@@ -133,7 +121,7 @@ export function showFreshSelect() {
 
 export async function refreshData() {
   try {
-    if (hasNativeBridge()) {  // Electron: re-read everything natively
+    if (hasNativeBridge()) {
       await nativeInit();
       await presentDashboard(true);
       return;
