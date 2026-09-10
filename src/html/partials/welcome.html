@@ -47,12 +47,12 @@
           <div class="bg-base-200 rounded-box p-2.5 flex flex-col gap-1.5">
             <div class="flex items-baseline gap-2 font-mono text-xs">
               <span class="text-base-content/40 shrink-0 w-20">macOS/Linux</span>
-              <span class="text-primary">~/.claude/projects</span>
+              <button type="button" class="path-copy" title="Click to copy">~/.claude/projects</button>
             </div>
             <div class="border-t border-base-300 my-0.5"></div>
             <div class="flex items-baseline gap-2 font-mono text-xs">
               <span class="text-base-content/40 shrink-0 w-20">Windows</span>
-              <span class="text-primary">%USERPROFILE%\.claude\projects</span>
+              <button type="button" class="path-copy" title="Click to copy">%USERPROFILE%\.claude\projects</button>
             </div>
           </div>
           <button class="btn btn-primary btn-sm w-full" onclick="browseCodeFolder()">Browse Claude Code folder</button>
@@ -74,12 +74,12 @@
           <div class="bg-base-200 rounded-box p-2.5 flex flex-col gap-1.5">
             <div class="flex items-baseline gap-2 font-mono text-xs">
               <span class="text-base-content/40 shrink-0 w-20">macOS</span>
-              <span class="text-primary" style="word-break:break-all">~/Library/Application Support/Claude/local-agent-mode-sessions</span>
+              <button type="button" class="path-copy" style="word-break:break-all" title="Click to copy">~/Library/Application Support/Claude/local-agent-mode-sessions</button>
             </div>
             <div class="border-t border-base-300 my-0.5"></div>
             <div class="flex items-baseline gap-2 font-mono text-xs">
               <span class="text-base-content/40 shrink-0 w-20">Windows</span>
-              <span class="text-primary" style="word-break:break-all">%APPDATA%\Claude\local-agent-mode-sessions</span>
+              <button type="button" class="path-copy" style="word-break:break-all" title="Click to copy">%APPDATA%\Claude\local-agent-mode-sessions</button>
             </div>
           </div>
           <input type="file" id="cowork-input" webkitdirectory multiple style="display:none" onchange="onCoworkPicked(this.files)" />

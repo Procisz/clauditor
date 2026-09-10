@@ -1,4 +1,4 @@
-import { entryCost } from './config.js';
+import { entryCost, cacheWrite1h } from './config.js';
 import { state } from './state.js';
 import { dayKey, todayKey, getWeekKey, getMonthKey } from './dates.js';
 
@@ -14,6 +14,17 @@ export function parseJsonlLines(text) {
     try { records.push(JSON.parse(l)); } catch {}
   }
   return records;
+}
+
+export function usageTokens(usage) {
+  const cacheWrite = usage.cache_creation_input_tokens || 0;
+  return {
+    input:        usage.input_tokens || 0,
+    output:       usage.output_tokens || 0,
+    cacheWrite,
+    cacheWrite1h: Math.min(usage.cache_creation?.ephemeral_1h_input_tokens || 0, cacheWrite),
+    cacheRead:    usage.cache_read_input_tokens || 0,
+  };
 }
 
 export function parseEntries(records, agentType = 'main') {
@@ -34,10 +45,7 @@ export function parseEntries(records, agentType = 'main') {
       entrypoint: r.entrypoint || '',
       effort:     r.effort || '',
       sessionKind: 'code',
-      input:      usage.input_tokens || 0,
-      output:     usage.output_tokens || 0,
-      cacheWrite: usage.cache_creation_input_tokens || 0,
-      cacheRead:  usage.cache_read_input_tokens || 0,
+      ...usageTokens(usage),
     });
   }
   return entries;
@@ -87,10 +95,7 @@ export function parseCoworkEntries(records, taskId) {
       entrypoint: 'claude-desktop',
       effort:     r.effort || '',
       sessionKind: 'cowork',
-      input:      usage.input_tokens || 0,
-      output:     usage.output_tokens || 0,
-      cacheWrite: usage.cache_creation_input_tokens || 0,
-      cacheRead:  usage.cache_read_input_tokens || 0,
+      ...usageTokens(usage),
     });
   }
   return entries;
@@ -130,13 +135,14 @@ export function bucketEntries(entries) {
     else if (state.view === 'weekly')  key = getWeekKey(e.date);
     else                               key = getMonthKey(e.date);
 
-    if (!map.has(key)) map.set(key, { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, baseCost: 0 });
+    if (!map.has(key)) map.set(key, { input: 0, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0, baseCost: 0 });
     const b = map.get(key);
-    b.input      += e.input;
-    b.output     += e.output;
-    b.cacheWrite += e.cacheWrite;
-    b.cacheRead  += e.cacheRead;
-    b.baseCost   += entryCost(e);
+    b.input        += e.input;
+    b.output       += e.output;
+    b.cacheWrite   += e.cacheWrite;
+    b.cacheWrite1h += cacheWrite1h(e);
+    b.cacheRead    += e.cacheRead;
+    b.baseCost     += entryCost(e);
   }
 
   if (map.size === 0) return { labels: [], data: map };

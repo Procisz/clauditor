@@ -73,8 +73,8 @@ export function updatePricingWarning(unknownModels) {
   const toShow = (unknownModels || []).filter(m => !(('pricing:' + m) in dismissals));
   if (toShow.length === 0) { el.style.display = 'none'; return; }
   document.getElementById('pricing-warning-text').textContent =
-    'Unknown model pricing: ' + toShow.join(', ')
-    + ' — costs for these are estimated at default rates. Add entries in src/core/config.js.';
+    'No exact pricing entry for: ' + toShow.join(', ')
+    + ' — their costs are estimated, not exact. Add entries in src/core/config.js.';
   document.getElementById('pricing-warning-close').onclick = () => {
     dismissForAMonth(toShow.map(m => 'pricing:' + m));
     el.style.display = 'none';
@@ -195,6 +195,72 @@ export function domText(tag, cls, text) { const e = domEl(tag, cls); e.textConte
 export function domCell(cls, text) { return domText('td', cls, text); }
 export function domClear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
+let _toastHost = null;
+function getToastHost() {
+  if (!_toastHost || !_toastHost.isConnected) {
+    _toastHost = document.createElement('div');
+    _toastHost.className = 'toast toast-end toast-bottom';
+    _toastHost.style.zIndex = '10000';
+    _toastHost.setAttribute('role', 'status');
+    _toastHost.setAttribute('aria-live', 'polite');
+    document.body.appendChild(_toastHost);
+  }
+  return _toastHost;
+}
+
+export function showToast(message, kind = 'success', ms = 2200) {
+  const host = getToastHost();
+  for (const prev of host.querySelectorAll('.clauditor-toast')) {
+    if (prev.textContent === message) prev.remove();
+  }
+  const el = domText('div', 'clauditor-toast alert alert-' + kind + ' py-2 px-3 text-xs shadow-lg', message);
+  host.appendChild(el);
+  const remove = () => el.remove();
+  setTimeout(() => {
+    el.addEventListener('transitionend', remove, { once: true });
+    el.classList.add('toast-out');
+    setTimeout(remove, 600);
+  }, ms);
+  return el;
+}
+
+async function writeClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
+
+export async function copyToClipboard(text, label = 'Copied') {
+  const ok = await writeClipboard(text);
+  showToast(ok ? label : 'Could not copy — select the text and copy it manually', ok ? 'success' : 'error');
+  return ok;
+}
+
+export function initPathCopy(rootId) {
+  const root = document.getElementById(rootId);
+  if (!root) return;
+  root.addEventListener('click', e => {
+    const btn = e.target.closest('.path-copy');
+    if (!btn || !root.contains(btn)) return;
+    copyToClipboard(btn.textContent.trim(), 'Path copied to clipboard');
+  });
+}
+
 let _floatTip = null;
 function getFloatTip() {
   if (!_floatTip) {
@@ -238,8 +304,16 @@ function positionTip(tip, e) {
   tip.style.top  = y + 'px';
 }
 
+export function cacheWriteSplitTitle(total, oneHour) {
+  const fiveMin = Math.max(0, total - oneHour);
+  if (total === 0) return 'No cache writes';
+  return `${fmtNum(oneHour)} tokens written to the 1-hour cache (billed at 2× input) · `
+    + `${fmtNum(fiveMin)} to the 5-minute cache (1.25× input)`;
+}
+
 export function badgeClass(model) {
-  const m = model.toLowerCase();
+  const m = (model || '').toLowerCase();
+  if (m.includes('fable') || m.includes('mythos')) return 'badge-accent';
   if (m.includes('opus'))   return 'badge-secondary';
   if (m.includes('haiku'))  return 'badge-success';
   return 'badge-primary';
@@ -247,10 +321,12 @@ export function badgeClass(model) {
 
 export function shortModelName(model) {
   const m = (model || '').toLowerCase();
+  if (m.includes('fable'))  return 'fable';
+  if (m.includes('mythos')) return 'mythos';
   if (m.includes('opus'))   return 'opus';
   if (m.includes('sonnet')) return 'sonnet';
   if (m.includes('haiku'))  return 'haiku';
-  return model.slice(0, 12);
+  return (model || '').slice(0, 12);
 }
 
 export function applySortHeaders(tableId) {

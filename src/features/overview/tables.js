@@ -1,6 +1,6 @@
 import { state } from '../../core/state.js';
-import { entryCost } from '../../core/config.js';
-import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtInt, badgeClass, applySortHeaders, buildPaginator, projectKey, projectName } from '../../core/utils.js';
+import { entryCost, cacheWrite1h } from '../../core/config.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtInt, badgeClass, applySortHeaders, buildPaginator, projectKey, projectName, cacheWriteSplitTitle } from '../../core/utils.js';
 import { getModelPanel, isModelPanelOpen, buildModelSessionsRow, getProjectPanel, isProjectPanelOpen, buildProjectSessionsRow, collapsePanelRow, EFFORT_RANK } from './model-sessions.js';
 
 export function renderModelTable(entries) {
@@ -35,12 +35,13 @@ export function renderModelTable(entries) {
 
   const map = new Map();
   for (const e of entries) {
-    if (!map.has(e.model)) map.set(e.model, { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 });
+    if (!map.has(e.model)) map.set(e.model, { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0, base: 0 });
     const m = map.get(e.model);
     m.calls++;
     m.input      += e.input;
     m.output     += e.output;
-    m.cacheWrite += e.cacheWrite;
+    m.cacheWrite   += e.cacheWrite;
+    m.cacheWrite1h += cacheWrite1h(e);
     m.cacheRead  += e.cacheRead;
     m.base       += entryCost(e);
   }
@@ -72,11 +73,16 @@ export function renderModelTable(entries) {
     td0.appendChild(domText('span', 'model-chevron', isModelPanelOpen(model) ? '▾' : '▸'));
     td0.appendChild(domText('span', 'badge ' + badgeClass(model), model));
     tr.appendChild(td0);
-    for (const [text, cls] of [
+    for (const [text, cls, title] of [
       [fmtNum(d.calls), 'num'], [fmtNum(d.input), 'num'], [fmtNum(d.output), 'num'],
-      [fmtNum(d.cacheWrite), 'num'], [fmtNum(d.cacheRead), 'num'],
+      [fmtNum(d.cacheWrite), 'num', cacheWriteSplitTitle(d.cacheWrite, d.cacheWrite1h)],
+      [fmtNum(d.cacheRead), 'num'],
       [fmtMoney(d.base, 4), 'num'], [fmtMoney(d.base * state.markup, 4), 'num'],
-    ]) tr.appendChild(domCell(cls, text));
+    ]) {
+      const cell = domCell(cls, text);
+      if (title) cell.title = title;
+      tr.appendChild(cell);
+    }
     tr.onclick = () => {
       const p = getModelPanel(model);
       if (p.open) {

@@ -139,6 +139,31 @@
 .expand-wrap > .expand-content { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .expand-wrap { transition: none; } }
 
+.path-copy {
+  font: inherit;
+  color: var(--color-primary);
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  margin: 0 -2px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background-color .15s, opacity .15s;
+}
+.path-copy:hover { background: color-mix(in oklch, var(--color-primary) 14%, transparent); }
+.path-copy:active { opacity: .55; }
+.path-copy:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+
+.clauditor-toast { animation: toast-in .18s ease-out; }
+.clauditor-toast.toast-out { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .path-copy { transition: none; }
+  .clauditor-toast { animation: none; }
+  .clauditor-toast.toast-out { transition: none; }
+}
+
 #table-models tbody tr.model-row { cursor: pointer; }
 #table-models tbody tr.model-row:hover { background: var(--color-base-200); }
 #table-projects tbody tr.project-row { cursor: pointer; }

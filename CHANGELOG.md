@@ -4,7 +4,22 @@ All notable changes to Clauditor are documented here.
 
 ## [Unreleased]
 
+### 💰 Pricing
+- **Cache writes are billed by TTL.** Anthropic charges a 1-hour cache write at 2 × input and a 5-minute write at 1.25 ×; Clauditor charged everything at the 5-minute rate. Claude Code writes both, and on a real agentic corpus ~80% of written tokens are 1-hour writes — measured on 20k sessions the correction is **+12.7% of total spend**. The split comes from `usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}` and is surfaced in the session modal (token distribution bar and a "% written for 1 hour" line), the Model Breakdown cache column, the session explorer's cache tooltip, the Today cache card, the Token Breakdown chart, the Today token donut, and two new CSV columns
+- Non-Anthropic models cost nothing: a locally-run model such as `gpt-oss:20b` was estimated at default Claude rates; it now reports $0.00 and is left out of the unpriced-model banner, since zero is exact rather than an estimate
+- Entries archived before the TTL split keep pricing exactly as before (whole total at the 5-minute rate) and are rewritten with the split once seen alongside their raw log again
+- Pricing table re-verified against Anthropic's published rates (2026-09-04) and extended to every officially listed model, each as its own entry: Fable 5.1 / 5, Mythos 5.1 / 5, Opus 5 / 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4 / 3, Sonnet 5 / 4.6 / 4.5 / 4 / 3.7 / 3.5, Haiku 4.5 / 3.5 / 3
+- **Claude Fable 5.1 and Mythos 5.1 cache hits are billed at 0.025 × input ($0.25/MTok), not the standard 0.1 ×** — the table charged $1.00, overstating Fable 5.1 cost by ~31% on a real agentic workload (cache reads dominate the token mix)
+- Sonnet 5 stays at $2/$10: the increase to $3/$15 scheduled for 2026-09-01 was cancelled and the introductory rate became standard
+- `claude-opus-4` (the dateless Opus 4 id) was priced at the current $5/$25 Opus rate instead of the retired $15/$75 — the `opus-4` pattern carried the newer rate while the legacy rate was reachable only through longer date-shaped patterns
+
+### 🐛 Bug Fixes
+- A Claude model newer than the pricing table was priced silently and never reached the warning banner: bare family patterns (`opus`, `sonnet`, `haiku`, `fable`) match any version, so `getUnknownModels()` — which only flagged `PRICING_DEFAULT` — stayed quiet. Family rows are now `approx` and flag, restoring the guarantee documented in the README (this is the failure mode of 1.12.1, where `sonnet-5`/`opus-5` were mispriced by 30-50% undetected)
+- Version patterns are anchored, so a two-digit minor version can no longer be captured by its one-digit prefix (`claude-opus-4-10` resolved to the retired Opus 4.1 row at $15/$75, a silent 3× overcharge)
+- Fable and Mythos were missing from the model badge and label helpers: Fable rendered in Sonnet's colour, and `claude-fable-5` / `claude-fable-5-1` collapsed to the same truncated `claude-fable` chip in the session modal
+
 ### ✨ New Features
+- The folder paths on the data-source page are click-to-copy: clicking one puts it on the clipboard and confirms with a small toast that clears itself after ~2 seconds. Handy for the Cowork path, which has to be pasted into the macOS ⌘⇧G dialog. They are real buttons, so they are keyboard-reachable; copying falls back to a hidden textarea when the Clipboard API is unavailable (opening the single file over `file://`), and says so in the toast if the browser refuses outright
 - Reasoning-effort visibility: sortable Effort column in the session panels (dominant level badge + compact mix like `xhigh · max ×3`), per-effort breakdown chips in the session modal, and an aggregate effort mix in the Model Breakdown header — the field only exists on newer log records, older calls show as "no data"
 - Session modal shows peak context-window use (largest prompt of the session, with an estimated % of the 200K/1M window)
 

@@ -10,7 +10,7 @@ import { loadAndRender, loadFromFileInput, presentDashboard, setRenderCallback }
 import { showLoading, hideLoading } from './core/utils.js';
 import { initTheme, toggleTheme } from './core/theme.js';
 import { getFilteredEntries } from './core/parser.js';
-import { makeInfoIcon, initDismissableNote } from './core/utils.js';
+import { makeInfoIcon, initDismissableNote, initPathCopy } from './core/utils.js';
 
 import { renderAll, setView, onMarkupChange, exportCsv } from './features/overview/index.js';
 import { destroyOverviewCharts, resizeOverviewCharts } from './features/overview/charts.js';
@@ -144,6 +144,7 @@ setRenderCallback(renderAll);
     + 'you’ve spent so far; the projection estimates your month-end total from your current '
     + 'daily pace. Set the budget to 0 to turn tracking off.'));
   initDismissableNote('estimate-note', 'note:cost-estimates');
+  initPathCopy('welcome');
 
   state.thousandsSep = localStorage.getItem('clauditor_thousands_sep') ?? ',';
   state.decimalSep   = localStorage.getItem('clauditor_decimal_sep') || '.';

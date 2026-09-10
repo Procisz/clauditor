@@ -73,7 +73,8 @@ export function renderCostChart(labels, data) {
 export function renderTokenChart(labels, data) {
   const inp = labels.map(l => data.get(l)?.input      || 0);
   const out = labels.map(l => data.get(l)?.output     || 0);
-  const cw  = labels.map(l => data.get(l)?.cacheWrite || 0);
+  const cw1 = labels.map(l => data.get(l)?.cacheWrite1h || 0);
+  const cw5 = labels.map(l => Math.max(0, (data.get(l)?.cacheWrite || 0) - (data.get(l)?.cacheWrite1h || 0)));
   const cr  = labels.map(l => data.get(l)?.cacheRead  || 0);
   const base = getApexBaseOpts();
 
@@ -86,7 +87,8 @@ export function renderTokenChart(labels, data) {
     series: [
       { name: 'Input',       data: inp, color: CHART_COLORS[0] },
       { name: 'Output',      data: out, color: CHART_COLORS[1] },
-      { name: 'Cache Write', data: cw,  color: CHART_COLORS[2] },
+      { name: 'Cache Write · 5m', data: cw5, color: CHART_COLORS[2] },
+      { name: 'Cache Write · 1h', data: cw1, color: CHART_COLORS[6] },
       { name: 'Cache Read',  data: cr,  color: CHART_COLORS[4] },
     ],
     xaxis:       { ...base.xaxis, categories: labels, tickAmount: 12 },

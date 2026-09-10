@@ -1,7 +1,7 @@
 import { ApexCharts, getApexBaseOpts } from '../../core/charts.js';
 import { fmtMoney } from '../../core/utils.js';
 import { state } from '../../core/state.js';
-import { calcCost } from '../../core/config.js';
+import { entryCost } from '../../core/config.js';
 import { dayKey } from '../../core/dates.js';
 
 let chartHeatmap = null;
@@ -24,12 +24,7 @@ export function renderHeatmap() {
 
   const dayCosts = new Map();
   for (const e of state.allEntries) {
-    const cost = calcCost({
-      input_tokens: e.input,
-      output_tokens: e.output,
-      cache_creation_input_tokens: e.cacheWrite,
-      cache_read_input_tokens: e.cacheRead,
-    }, e.model) * state.markup;
+    const cost = entryCost(e) * state.markup;
     dayCosts.set(e.date, (dayCosts.get(e.date) || 0) + cost);
   }
   const maxCost = Math.max(...dayCosts.values(), 0.001);

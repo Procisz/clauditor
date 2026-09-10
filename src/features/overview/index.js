@@ -1,5 +1,5 @@
 import { state } from '../../core/state.js';
-import { calcCost, CONFIG_DEFAULT_MARKUP } from '../../core/config.js';
+import { entryCost, cacheWrite5m, cacheWrite1h, CONFIG_DEFAULT_MARKUP } from '../../core/config.js';
 import { getFilteredEntries, bucketEntries } from '../../core/parser.js';
 import { renderCards, renderBurnRate } from './cards.js';
 import { renderCostChart, renderTokenChart, renderCacheChart, renderTreemap, renderCumulativeSpend } from './charts.js';
@@ -52,14 +52,13 @@ export function exportCsv() {
     : String(v);
 
   const header = ['timestamp','date','session_id','project','model','agent_type',
-    'input_tokens','output_tokens','cache_write_tokens','cache_read_tokens',
+    'input_tokens','output_tokens','cache_write_tokens','cache_write_5m_tokens','cache_write_1h_tokens','cache_read_tokens',
     'base_cost','final_cost'];
 
   const rows = entries.map(e => {
-    const base = calcCost({ input_tokens: e.input, output_tokens: e.output,
-      cache_creation_input_tokens: e.cacheWrite, cache_read_input_tokens: e.cacheRead }, e.model);
+    const base = entryCost(e);
     return [e.ts, e.date, e.sessionId, e.cwd || e.slug, e.model, e.agentType,
-      e.input, e.output, e.cacheWrite, e.cacheRead,
+      e.input, e.output, e.cacheWrite, cacheWrite5m(e), cacheWrite1h(e), e.cacheRead,
       base.toFixed(8), (base * state.markup).toFixed(8)].map(esc).join(',');
   });
 

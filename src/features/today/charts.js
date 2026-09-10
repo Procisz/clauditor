@@ -1,6 +1,6 @@
 import { ApexCharts, CHART_COLORS, getApexBaseOpts } from '../../core/charts.js';
 import { state } from '../../core/state.js';
-import { entryCost } from '../../core/config.js';
+import { entryCost, cacheWrite5m, cacheWrite1h } from '../../core/config.js';
 import { fmtMoney, fmtInt } from '../../core/utils.js';
 
 let chartTodayModel      = null;
@@ -76,16 +76,19 @@ export function renderTodayModelPie(entries) {
 }
 
 export function renderTodayTokenPie(entries) {
-  let inp = 0, out = 0, cw = 0, cr = 0;
-  for (const e of entries) { inp += e.input; out += e.output; cw += e.cacheWrite; cr += e.cacheRead; }
+  let inp = 0, out = 0, cw5 = 0, cw1 = 0, cr = 0;
+  for (const e of entries) {
+    inp += e.input; out += e.output; cr += e.cacheRead;
+    cw5 += cacheWrite5m(e); cw1 += cacheWrite1h(e);
+  }
   const base = getApexBaseOpts();
 
   chartTodayTokens = applyOrCreate(chartTodayTokens, 'chart-today-tokens', {
     chart:      { ...base.chart, type: 'donut', height: 240 },
     theme:      base.theme,
-    series:     [inp, out, cw, cr],
-    labels:     ['Input', 'Output', 'Cache Write', 'Cache Read'],
-    colors:     [CHART_COLORS[0], CHART_COLORS[1], CHART_COLORS[2], CHART_COLORS[4]],
+    series:     [inp, out, cw5, cw1, cr],
+    labels:     ['Input', 'Output', 'Cache Write · 5m', 'Cache Write · 1h', 'Cache Read'],
+    colors:     [CHART_COLORS[0], CHART_COLORS[1], CHART_COLORS[2], CHART_COLORS[6], CHART_COLORS[4]],
     tooltip:    { ...base.tooltip, y: { formatter: v => fmtInt(v) + ' tokens' } },
     dataLabels: { enabled: false },
     legend:     { ...base.legend, position: 'bottom' },

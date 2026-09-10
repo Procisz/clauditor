@@ -38,7 +38,7 @@ flowchart LR
 Key facts:
 
 - Only JSONL lines with `type: "assistant"` and a `message.usage` field are counted ([parser.js](src/core/parser.js)).
-- Cost is always recomputed from token counts × the pricing table in [config.js](src/core/config.js) — the `costUSD` field in the logs is never trusted. Matching is longest-pattern-first; models with no entry trigger a visible warning banner (they'd otherwise be silently priced at default rates).
+- Cost is always recomputed from token counts × the pricing table in [config.js](src/core/config.js) — the `costUSD` field in the logs is never trusted. Matching is first-hit-wins over version-anchored patterns; models with no exact entry are priced approximately from their family and trigger a visible warning banner (they'd otherwise be silently mispriced).
 - An optional markup multiplier (default **×1** — no markup) can be applied on top of the Anthropic base cost.
 - All day/week/month bucketing happens in the **viewer's local timezone** via [dates.js](src/core/dates.js) — timestamps are UTC instants, and `date` is recomputed from `ts` at parse and archive-read time, so data recorded in any timezone displays consistently.
 - Subagent JSONL files get an `agentType` label resolved from `.meta.json` sidecars, powering the per-session agent breakdown.
@@ -88,7 +88,7 @@ flowchart TD
     main["main.js<br/>entry: wires window.* handlers,<br/>resize, init"]
 
     subgraph core["src/core — infrastructure (no DOM rendering)"]
-        config["config.js<br/>PRICING, calcCost,<br/>getUnknownModels"]
+        config["config.js<br/>PRICING, entryCost,<br/>getUnknownModels"]
         datesjs["dates.js<br/>dayKey, todayKey,<br/>week/month keys"]
         statejs["state.js<br/>shared mutable state"]
         db["db.js<br/>IndexedDB handles"]

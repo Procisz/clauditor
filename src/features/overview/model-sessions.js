@@ -1,7 +1,7 @@
 import { state } from '../../core/state.js';
-import { entryCost } from '../../core/config.js';
+import { entryCost, cacheWrite1h } from '../../core/config.js';
 import { sessionType, sessionOrigin } from '../../core/parser.js';
-import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtInt, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName } from '../../core/utils.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtInt, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName, cacheWriteSplitTitle } from '../../core/utils.js';
 
 const COLUMNS = [
   { key: 'name',   label: 'Session',    cls: '' },
@@ -60,7 +60,7 @@ function sessionsWhere(entries, pred) {
   for (const e of entries) {
     if (!pred(e)) continue;
     const key = e.sessionId || '(unknown)';
-    if (!map.has(key)) map.set(key, { rawSid: e.sessionId, slug: e.slug, cwd: e.cwd, entrypoint: e.entrypoint, kind: e.sessionKind || 'code', minTs: e.ts, maxTs: e.ts, calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0, efforts: new Map(), effortUnknown: 0 });
+    if (!map.has(key)) map.set(key, { rawSid: e.sessionId, slug: e.slug, cwd: e.cwd, entrypoint: e.entrypoint, kind: e.sessionKind || 'code', minTs: e.ts, maxTs: e.ts, calls: 0, input: 0, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0, base: 0, efforts: new Map(), effortUnknown: 0 });
     const s = map.get(key);
     if (e.slug && !s.slug) s.slug = e.slug;
     if (e.cwd && !s.cwd)   s.cwd  = e.cwd;
@@ -70,7 +70,7 @@ function sessionsWhere(entries, pred) {
     else s.effortUnknown++;
     if (e.ts && (!s.minTs || e.ts < s.minTs)) s.minTs = e.ts;
     if (e.ts && e.ts > s.maxTs) s.maxTs = e.ts;
-    s.calls++; s.input += e.input; s.output += e.output; s.cacheWrite += e.cacheWrite; s.cacheRead += e.cacheRead;
+    s.calls++; s.input += e.input; s.output += e.output; s.cacheWrite += e.cacheWrite; s.cacheWrite1h += cacheWrite1h(e); s.cacheRead += e.cacheRead;
     s.base += entryCost(e);
   }
   const list = [...map.entries()].map(([key, s]) => {
@@ -245,7 +245,8 @@ function renderPanel(td, ns, key, entries) {
     tokCell.title = `input ${fmtNum(s.input)} · output ${fmtNum(s.output)}`;
     str.appendChild(tokCell);
     const cacheCell = domCell('num', fmtFixed(s.cacheHit, 1) + '%');
-    cacheCell.title = `${fmtNum(s.cacheRead)} tokens read from cache`;
+    cacheCell.title = `${fmtNum(s.cacheRead)} tokens read from cache · `
+      + cacheWriteSplitTitle(s.cacheWrite, s.cacheWrite1h);
     str.appendChild(cacheCell);
     str.appendChild(domCell('num', fmtMoney(s.base * state.markup, 4)));
 
@@ -282,7 +283,8 @@ function ensureModal() {
 const BAR_COLORS = {
   input:      'rgba(108,142,245,.9)',
   output:     'rgba(167,139,250,.9)',
-  cacheWrite: 'rgba(251,191,36,.9)',
+  cacheWrite:   'rgba(251,191,36,.9)',
+  cacheWrite1h: 'rgba(217,119,6,.9)',
   cacheRead:  'rgba(52,211,153,.9)',
 };
 
@@ -337,6 +339,15 @@ function metaItem(label, value) {
   return div;
 }
 
+function cacheWriteMeta(total, oneHour) {
+  const item = metaItem('Cache write', fmtNum(total) + ' tokens');
+  const share = total > 0 ? (oneHour / total) * 100 : 0;
+  item.appendChild(domText('div', 'text-xs opacity-50',
+    total > 0 ? `${fmtFixed(share, 0)}% written for 1 hour` : ''));
+  item.title = cacheWriteSplitTitle(total, oneHour);
+  return item;
+}
+
 export function openSessionModal(sid) {
   if (!sid) return;
   ensureModal();
@@ -344,7 +355,7 @@ export function openSessionModal(sid) {
   if (all.length === 0) return;
   const durations = state.allDurations.filter(d => d.sessionId === sid);
 
-  const t = { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, base: 0 };
+  const t = { calls: 0, input: 0, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0, base: 0 };
   const models = new Map();
   const agents = new Map();
   const efforts = new Map();
@@ -353,7 +364,7 @@ export function openSessionModal(sid) {
   const days = new Set();
   let minTs = '', maxTs = '', slug = '', cwd = '', entrypoint = '', kind = 'code';
   for (const e of all) {
-    t.calls++; t.input += e.input; t.output += e.output; t.cacheWrite += e.cacheWrite; t.cacheRead += e.cacheRead;
+    t.calls++; t.input += e.input; t.output += e.output; t.cacheWrite += e.cacheWrite; t.cacheWrite1h += cacheWrite1h(e); t.cacheRead += e.cacheRead;
     const cost = entryCost(e);
     t.base += cost;
     if (!models.has(e.model)) models.set(e.model, { calls: 0, tokens: 0, base: 0 });
@@ -434,7 +445,8 @@ export function openSessionModal(sid) {
   modalBox.appendChild(tokenBar([
     { label: 'Input',       value: t.input,      color: BAR_COLORS.input },
     { label: 'Output',      value: t.output,     color: BAR_COLORS.output },
-    { label: 'Cache write', value: t.cacheWrite, color: BAR_COLORS.cacheWrite },
+    { label: 'Cache write · 1h', value: t.cacheWrite1h, color: BAR_COLORS.cacheWrite1h },
+    { label: 'Cache write · 5m', value: t.cacheWrite - t.cacheWrite1h, color: BAR_COLORS.cacheWrite },
     { label: 'Cache read',  value: t.cacheRead,  color: BAR_COLORS.cacheRead },
   ]));
 
@@ -498,7 +510,7 @@ export function openSessionModal(sid) {
   meta.appendChild(metaItem('Type', type));
   meta.appendChild(metaItem('Source', origin));
   meta.appendChild(metaItem('Active days', String(days.size)));
-  meta.appendChild(metaItem('Cache write', fmtNum(t.cacheWrite) + ' tokens'));
+  meta.appendChild(cacheWriteMeta(t.cacheWrite, t.cacheWrite1h));
   meta.appendChild(metaItem('Base cost', fmtMoney(t.base, 4)));
   meta.appendChild(metaItem('Share of total spend', fmtFixed(share, 2) + '%'));
   if (peakContext > 0) {

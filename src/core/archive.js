@@ -91,6 +91,11 @@ export async function readArchive(handle, fromMonth = '') {
   }
 }
 
+const BACKFILL = [
+  { field: 'entrypoint',   has: e => !!e.entrypoint },
+  { field: 'cacheWrite1h', has: e => e.cacheWrite1h !== undefined },
+];
+
 export async function writeArchive(handle) {
   if (!handle) return;
   try {
@@ -105,7 +110,7 @@ export async function writeArchive(handle) {
 
       const seenKeys = new Set();
 
-      const missingEntrypoint = new Set();
+      const missing = new Map(BACKFILL.map(b => [b.field, new Set()]));
       const lastArchivedTitle = new Map();
       let existingByteLength = 0;
       try {
@@ -116,8 +121,10 @@ export async function writeArchive(handle) {
         for (const e of parsed.entries) {
           const k = entryKey(e);
           seenKeys.add(k);
-          if (e.entrypoint === undefined) missingEntrypoint.add(k);
-          else missingEntrypoint.delete(k);
+          for (const b of BACKFILL) {
+            if (e[b.field] === undefined) missing.get(b.field).add(k);
+            else missing.get(b.field).delete(k);
+          }
         }
         for (const d of parsed.durations) seenKeys.add(durationKey(d));
 
@@ -126,7 +133,8 @@ export async function writeArchive(handle) {
 
       const newEntries = entries.filter(e => {
         const k = entryKey(e);
-        return !seenKeys.has(k) || (e.entrypoint && missingEntrypoint.has(k));
+        if (!seenKeys.has(k)) return true;
+        return BACKFILL.some(b => b.has(e) && missing.get(b.field).has(k));
       });
       const newDurations = durations.filter(d => !seenKeys.has(durationKey(d)));
 
