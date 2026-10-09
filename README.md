@@ -12,11 +12,12 @@ A single-file HTML dashboard that visualises your Claude Code token usage and co
 
 ## Features
 
-- **Cost tracking** — Anthropic base cost with an optional markup multiplier (default ×1 — no markup)
+- **Cost tracking**: Anthropic base cost with an optional markup multiplier (default ×1, no markup); the number of decimal places shown for costs is a setting (0 to 8, default 2), as are the thousands and decimal separators
+- **Token usage**: an all-time total of every token the logs contain, broken down by type (input, output, 5-minute and 1-hour cache writes, cache reads) with each type's share of the volume next to its share of the bill: cache reads are typically most of the tokens and a fraction of the cost, 1-hour cache writes the reverse
 - **Cost over time chart** — single bar per period showing final cost; click any bar to drill into session breakdown
 - **Token breakdown chart** — stacked bar showing input, output, cache write (split 5-minute vs 1-hour, since the two are billed at different rates), cache read
-- **Model breakdown** — calls, tokens, and cost per model; entries from models missing a pricing entry trigger a visible warning banner instead of silently using wrong rates
-- **Per-model session explorer** — click any model row to expand its sessions: a sortable list (three-state headers: ascending / descending / neutral; default order is start date, newest first) with Material-style pagination (5/10/25/50/100 rows per page, default 5); Type (Chat / Cowork / Code) and Source (Desktop app / CLI) columns say what each session is and where it ran; clicking a session opens a detail modal with stat cards, token distribution, per-model and per-agent breakdowns, and timeline info
+- **Model breakdown**: calls, tokens, and cost per model; prices update automatically from Anthropic's official pricing page (daily GitHub workflow), each request is priced at the rate in force when it ran, and models without a price entry trigger a visible warning banner instead of silently using wrong rates
+- **Per-model session explorer**: click any model row to expand its sessions: a sortable list (three-state headers: ascending / descending / neutral; default and neutral order is final cost, most expensive first, the rule every table in the app follows) with Material-style pagination (5/10/25/50/100 rows per page, default 5); Type (Chat / Cowork / Code) and Source (Desktop app / CLI) columns say what each session is and where it ran; clicking a session opens a detail modal with stat cards, token distribution, per-model and per-agent breakdowns, and timeline info
 - **Cowork task usage** — Cowork tasks ("Tasks" in the Desktop app) never write `~/.claude/projects`; their transcripts live in the app's own store. Click **Add Cowork** and select `~/Library/Application Support/Claude/local-agent-mode-sessions` (press Cmd+Shift+G in the dialog and paste the path) — each task appears as one session, with its Desktop title, typed **Cowork**. Chrome forbids remembering folders under `~/Library`, so this uses a one-shot picker; with an archive folder set, loaded Cowork usage is archived and persists across visits — re-add only to pull in new task activity. (Chats remain invisible: they are server-side only and keep no local usage data)
 - **Real session names** — sessions are labeled with the same titles the Claude Desktop sidebar shows (read from the logs' `custom-title` records), falling back to the generated slug or id prefix; titles are archived so they outlive log pruning
 - **Project breakdown** — all projects listed by name (folder basename for Code work; each Cowork task is its own project, named by its task title), always all time (the section ignores the date filter), paginated (default 10 per page) with every column sortable (three-state headers, default: highest final cost first); rows expand into the same per-project session explorer as Model Breakdown, sessions open the same detail modal; the treemap above it visualizes the top 20
@@ -81,31 +82,23 @@ base_cost = (input_tokens × input_price)
 final_cost = base_cost × markup_multiplier
 ```
 
-### Model Pricing (per 1M tokens)
+### Model Pricing
 
-The pricing table lives in [`src/core/config.js`](src/core/config.js) — that file is the single source of truth. Current rates (verified 2026-09-04 against Anthropic's published pricing page):
+Rates live in [`src/core/pricing.json`](src/core/pricing.json), which is the single source of truth, and are kept current automatically: the [`update-pricing`](.github/workflows/update-pricing.yml) GitHub workflow runs daily, downloads Anthropic's official [pricing page](https://platform.claude.com/docs/en/about-claude/pricing), and commits `pricing.json` to `main` whenever a price changes or a model appears. Nothing third party is involved. Pull and rebuild (or restart `npm run dev`) to pick up new prices; Settings shows the date of the price list in use.
 
-| Model | Input | Output | Cache Write 5m | Cache Write 1h | Cache Read |
-|-------|-------|--------|----------------|----------------|------------|
-| claude-fable-5-1 / mythos-5-1 | $10.00 | $50.00 | $12.50 | $20.00 | **$0.25** |
-| claude-fable-5 / mythos-5 | $10.00 | $50.00 | $12.50 | $20.00 | $1.00 |
-| claude-opus-5 / opus-4.5→4.8 | $5.00 | $25.00 | $6.25 | $10.00 | $0.50 |
-| claude-opus-4 / 4.1 / 3 | $15.00 | $75.00 | $18.75 | $30.00 | $1.50 |
-| claude-sonnet-5 | $2.00 | $10.00 | $2.50 | $4.00 | $0.20 |
-| claude-sonnet 4 / 4.5 / 4.6, 3 / 3.5 / 3.7 | $3.00 | $15.00 | $3.75 | $6.00 | $0.30 |
-| claude-haiku-4-5 | $1.00 | $5.00 | $1.25 | $2.00 | $0.10 |
-| claude-3-5-haiku | $0.80 | $4.00 | $1.00 | $1.60 | $0.08 |
-| claude-3-haiku | $0.25 | $1.25 | $0.3125 | $0.50 | $0.025 |
+**Prices over time.** Every model keeps a dated history. When a rate changes, the old rate stays and a new version with a `from` date (UTC) is appended, so each request is priced at the rate that was in force when it ran: a session from March keeps March's price even after a later change. The workflow dates a change on the day it first sees it; since it runs daily that is at most a day late, and you can correct a `from` date by editing `pricing.json` (a price announced in advance can be entered with a future date, too). A newly listed model gets its first-seen date, and its first price also covers any earlier logs.
 
-Cache rates follow Anthropic's multipliers — **5-minute write = 1.25 × input, 1-hour write = 2 × input**, read = 0.1 × input — with one documented exception: **Claude Fable 5.1 and Mythos 5.1 price cache hits at 0.025 × input ($0.25/MTok), not 0.1 ×**. Since cache reads dominate agentic workloads, pricing them at the standard multiplier overstates Fable 5.1 cost roughly fourfold.
+**Prompt-length tiers.** Some models charge more for long prompts (Claude Haiku 5.5: above 100,000 prompt tokens). A request's prompt length is its input plus cache reads plus cache writes, and each request is priced on its own, exactly as Anthropic bills it.
 
-The two cache-write TTLs are billed apart because Claude Code uses both: the logs report the split in `usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}`, and on a real agentic corpus roughly 80% of written tokens are 1-hour writes. Charging those at the 5-minute rate understates the bill by 37.5% on every one of them. Entries archived before this split existed carry only a total and are billed entirely at the 5-minute rate, exactly as they were before; they are rewritten with the split the next time their raw log is still on disk.
+**Cache rates.** 5-minute writes, 1-hour writes and cache reads are priced separately per model, straight from the official table. Claude Code uses both cache lifetimes and reports the split in `usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}`; entries archived before that split existed carry only a total and are billed at the 5-minute rate.
 
-Models that are not Anthropic's — a locally-run `gpt-oss:20b`, say — cost nothing and are reported as $0.00 rather than being estimated at Claude rates.
+**Matching log ids.** Each entry matches a version-anchored pattern with an optional trailing date snapshot, so `claude-opus-4-1` cannot swallow a future `claude-opus-4-10`. A Claude model that matches only a bare family name is priced from that family's flagship and raises the warning banner until the workflow adds it. Models that are not Anthropic's (a locally-run `gpt-oss:20b`, say) cost nothing.
 
-Each entry matches a version-anchored pattern (with an optional trailing date snapshot), so `claude-opus-4-1` cannot swallow a future `claude-opus-4-10`, and `claude-opus-4` resolves to the retired $15/$75 Opus 4 rather than the current Opus 4.x rate. Anything that matches only a bare family name — a Claude model released after this table was written — is priced from that family's current flagship **and** raises the warning banner, so a new model can never be silently mispriced. After editing the table, run `npm run check:pricing`; it verifies every model id, both cache multipliers, the anchoring, and the banner.
+**Running it by hand.** `npm run update:pricing` performs the same update locally; `npm run check:pricing` validates the list (structure, rate ordering, id resolution, time and tier selection, the page parser). The parser refuses to guess: an unknown column, a cell with more than one price, a model name it can't map, or markup it doesn't recognise makes the workflow fail, GitHub emails you, and `pricing.json` keeps the last good prices. To skip a row on purpose, add its name to `IGNORED_ROWS` in `scripts/update-pricing.mjs`.
 
-The markup multiplier (default `1`, i.e. no markup — set it higher if someone bills you a surcharge on top of Anthropic rates) is editable live in the UI; to change the default, edit `CONFIG_DEFAULT_MARKUP` in the same file.
+**Not modelled yet:** fast mode (premium rates for Opus 5.5, 5 and 4.8) and the 1.1x surcharge for US-only inference. Claude Code records both per request (`usage.speed`, `usage.inference_geo`); requests that use them are priced at standard rates.
+
+The markup multiplier (default `1`, i.e. no markup; set it higher if someone bills you a surcharge on top of Anthropic rates) is editable live in the UI; to change the default, edit `CONFIG_DEFAULT_MARKUP` in `src/core/config.js`.
 
 ## Archive (optional)
 

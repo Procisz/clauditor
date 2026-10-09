@@ -106,8 +106,8 @@ export function renderTodaySessionsTable(entries) {
       tr.appendChild(domCell('num', fmtNum(d.input)));
       tr.appendChild(domCell('num', fmtNum(d.output)));
       tr.appendChild(domCell('num', fmtNum(d.cacheRead)));
-      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
-      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup)));
       tbody.appendChild(tr);
     }
   }
@@ -182,7 +182,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     mTd.appendChild(mBadge); btr.appendChild(mTd);
     btr.appendChild(domCell('num', String(b.calls)));
     btr.appendChild(domCell('num', fmtNum(b.output)));
-    btr.appendChild(domCell('num', fmtMoney(b.base * state.markup, 4)));
+    btr.appendChild(domCell('num', fmtMoney(b.base * state.markup)));
     tbdy.appendChild(btr);
   }
   tbl.appendChild(tbdy);
@@ -212,7 +212,7 @@ export function toggleSessionBreakdown(sid, d, parentTr) {
     series:     labels.map(l => agentTotals.get(l)),
     labels,
     colors:     labels.map(l => sessionChartColor(l)),
-    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v, 4) } },
+    tooltip:    { ...base.tooltip, y: { formatter: v => fmtMoney(v) } },
     dataLabels: { enabled: false },
     legend:     { show: false },
     plotOptions: { pie: { donut: { size: '60%' } } },

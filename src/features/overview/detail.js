@@ -50,8 +50,8 @@ export function showDetail(bucketKey) {
       tr.appendChild(domCell('num', fmtNum(d.input)));
       tr.appendChild(domCell('num', fmtNum(d.output)));
       tr.appendChild(domCell('num', fmtNum(d.cacheRead)));
-      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
-      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup)));
       tbody.appendChild(tr);
     }
   }

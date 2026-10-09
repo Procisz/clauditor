@@ -77,7 +77,7 @@ export function renderModelTable(entries) {
       [fmtNum(d.calls), 'num'], [fmtNum(d.input), 'num'], [fmtNum(d.output), 'num'],
       [fmtNum(d.cacheWrite), 'num', cacheWriteSplitTitle(d.cacheWrite, d.cacheWrite1h)],
       [fmtNum(d.cacheRead), 'num'],
-      [fmtMoney(d.base, 4), 'num'], [fmtMoney(d.base * state.markup, 4), 'num'],
+      [fmtMoney(d.base), 'num'], [fmtMoney(d.base * state.markup), 'num'],
     ]) {
       const cell = domCell(cls, text);
       if (title) cell.title = title;
@@ -146,7 +146,7 @@ export function renderProjectsTable(entries) {
     tr.appendChild(td0);
     for (const [text, cls] of [
       [String(d.sessions.size), 'num'], [fmtNum(d.calls), 'num'],
-      [fmtMoney(d.base, 4), 'num'], [fmtMoney(d.base * state.markup, 4), 'num'],
+      [fmtMoney(d.base), 'num'], [fmtMoney(d.base * state.markup), 'num'],
     ]) tr.appendChild(domCell(cls, text));
     tr.onclick = () => {
       const p = getProjectPanel(key);

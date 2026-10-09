@@ -117,7 +117,7 @@ export function renderHeatmap() {
         if (!d?.date) return `<div style="padding:6px 10px;font-size:12px;opacity:.5">No data</div>`;
         return `<div style="padding:8px 12px;font-size:12px">
           <div style="font-weight:600;margin-bottom:3px">${d.date}</div>
-          <div>${d.cost > 0 ? fmtMoney(d.cost, 4) : 'No activity'}</div>
+          <div>${d.cost > 0 ? fmtMoney(d.cost) : 'No activity'}</div>
         </div>`;
       },
     },

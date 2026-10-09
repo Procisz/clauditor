@@ -27,8 +27,8 @@ export function renderTodayProjectsTable(entries) {
       tr.appendChild(domCell('mono', shortPath(cwd)));
       tr.appendChild(domCell('num', String(d.sessions.size)));
       tr.appendChild(domCell('num', fmtNum(d.calls)));
-      tr.appendChild(domCell('num', fmtMoney(d.base, 4)));
-      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup, 4)));
+      tr.appendChild(domCell('num', fmtMoney(d.base)));
+      tr.appendChild(domCell('num', fmtMoney(d.base * state.markup)));
       tbody.appendChild(tr);
     }
   }

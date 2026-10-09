@@ -1,6 +1,6 @@
 import './styles.css';
 
-import { CONFIG_DEFAULT_MARKUP } from './core/config.js';
+import { CONFIG_DEFAULT_MARKUP, PRICE_LIST_UPDATED } from './core/config.js';
 import { state } from './core/state.js';
 import { loadHandle } from './core/db.js';
 import { browseCodeFolder, browseCoworkFolder, onCodeFilesPicked, onCoworkPicked, openDashboard, showSources, reauthorize, showFreshSelect, refreshData } from './core/folder.js';
@@ -78,6 +78,17 @@ function setupTableSorting() {
   }
 }
 
+const DEFAULT_MONEY_DECIMALS = 2;
+function clampDecimals(v) {
+  if (v === '' || v === null || v === undefined) return DEFAULT_MONEY_DECIMALS;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(8, Math.max(0, n)) : DEFAULT_MONEY_DECIMALS;
+}
+function rerenderAfterSettingChange() {
+  if (state.allEntries.length === 0) return;
+  if (state.activeTab === 'today') { destroyTodayCharts(); renderTodayView(); } else renderAll();
+}
+
 Object.assign(window, {
   toggleTheme: () => { toggleTheme(); if (state.allEntries.length > 0) { if (state.activeTab === 'today') { destroyTodayCharts(); renderTodayView(); } else renderAll(); } },
   browseCodeFolder, browseCoworkFolder, onCodeFilesPicked, onCoworkPicked, openDashboard, showSources,
@@ -95,6 +106,12 @@ Object.assign(window, {
   prevDay, nextDay, goToToday, onDayPicked,
   exportCsv,
   openSettings: () => document.getElementById('settings-modal').showModal(),
+  onDecimalsChange: () => {
+    state.moneyDecimals = clampDecimals(document.getElementById('money-decimals-input').value);
+    document.getElementById('money-decimals-input').value = state.moneyDecimals;
+    localStorage.setItem('clauditor_money_decimals', state.moneyDecimals);
+    rerenderAfterSettingChange();
+  },
   onSepChange: () => {
     state.thousandsSep = document.getElementById('thousands-sep-input').value;
     state.decimalSep   = document.getElementById('decimal-sep-input').value || '.';
@@ -105,9 +122,7 @@ Object.assign(window, {
     document.getElementById('decimal-sep-input').value = state.decimalSep;
     localStorage.setItem('clauditor_thousands_sep', state.thousandsSep);
     localStorage.setItem('clauditor_decimal_sep', state.decimalSep);
-    if (state.allEntries.length > 0) {
-      if (state.activeTab === 'today') { destroyTodayCharts(); renderTodayView(); } else renderAll();
-    }
+    rerenderAfterSettingChange();
   },
 });
 
@@ -136,6 +151,7 @@ setRenderCallback(renderAll);
     localStorage.setItem('clauditor_datefrom_reset', '1');
   }
   document.getElementById('app-version').textContent = 'v' + __APP_VERSION__;
+  document.getElementById('price-list-updated').textContent = 'Price list: ' + PRICE_LIST_UPDATED;
   document.getElementById('markup-info').appendChild(makeInfoIcon(
     'Final cost = base cost × this multiplier. Base cost uses public Anthropic API pricing — '
     + 'leave at 1 for no markup, or set higher if your provider bills a surcharge on top.'));
@@ -150,6 +166,8 @@ setRenderCallback(renderAll);
   state.decimalSep   = localStorage.getItem('clauditor_decimal_sep') || '.';
   document.getElementById('thousands-sep-input').value = state.thousandsSep;
   document.getElementById('decimal-sep-input').value = state.decimalSep;
+  state.moneyDecimals = clampDecimals(localStorage.getItem('clauditor_money_decimals'));
+  document.getElementById('money-decimals-input').value = state.moneyDecimals;
   const savedMarkup = parseFloat(localStorage.getItem('clauditor_markup'));
   const savedBudget = parseFloat(localStorage.getItem('clauditor_budget'));
   document.getElementById('markup-input').value = savedMarkup || CONFIG_DEFAULT_MARKUP;

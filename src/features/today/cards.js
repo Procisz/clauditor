@@ -33,8 +33,8 @@ export function renderTodayCards(entries) {
   const sessionTimeMs = calcSessionTime(entries);
 
   const cards = [
-    { label: (isToday ? "Today's" : state.selectedDate) + ' Final Cost', value: fmtMoney(finalCost, 4), cls: finalCost > 0 ? 'orange' : '', sub: 'incl. markup' },
-    { label: 'Base Cost',          value: fmtMoney(totalBase, 4),    cls: '',       sub: 'Anthropic pricing' },
+    { label: (isToday ? "Today's" : state.selectedDate) + ' Final Cost', value: fmtMoney(finalCost), cls: finalCost > 0 ? 'orange' : '', sub: 'incl. markup' },
+    { label: 'Base Cost',          value: fmtMoney(totalBase),    cls: '',       sub: 'Anthropic pricing' },
     { label: 'Sessions',           value: String(sessions.size),          cls: 'accent', sub: 'unique sessions' },
     { label: 'Session Time',       value: fmtDuration(sessionTimeMs),    cls: 'yellow', sub: 'wall-clock worked', tooltip: 'Sum of each session\'s span: last message timestamp minus first message timestamp. Includes time you spent reading and thinking, not just Claude\'s processing time.' },
     { label: 'API Calls',          value: fmtNum(entries.length),         cls: '',       sub: 'assistant turns' },
@@ -44,7 +44,7 @@ export function renderTodayCards(entries) {
         + cacheWriteSplitTitle(totalCacheWrite, totalCacheWrite1h)
         + '. A 1-hour write costs 2× the input rate, a 5-minute write 1.25×.' },
     { label: 'Avg Response Time',  value: fmtDuration(avgDurationMs),     cls: '',       sub: 'per turn' },
-    { label: 'Avg Cost / Turn',    value: avgCostPerTurn > 0 ? fmtMoney(avgCostPerTurn, 4) : '—', cls: '', sub: 'incl. markup' },
+    { label: 'Avg Cost / Turn',    value: avgCostPerTurn > 0 ? fmtMoney(avgCostPerTurn) : '-', cls: '', sub: 'incl. markup' },
   ];
 
   const container = document.getElementById('today-cards');

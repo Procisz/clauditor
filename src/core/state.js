@@ -19,4 +19,5 @@ export const state = {
   autoDateFrom:  '',
   thousandsSep:  ',',
   decimalSep:    '.',
+  moneyDecimals: 2,
 };

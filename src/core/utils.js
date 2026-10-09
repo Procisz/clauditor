@@ -88,7 +88,7 @@ export function fmtFixed(v, decimals = 0) {
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, state.thousandsSep);
   return (neg ? '-' : '') + grouped + (frac !== undefined ? state.decimalSep + frac : '');
 }
-export function fmtMoney(v, decimals = 4) { return '$' + fmtFixed(v, decimals); }
+export function fmtMoney(v) { return '$' + fmtFixed(v, state.moneyDecimals); }
 export function fmtInt(n) { return fmtFixed(n, 0); }
 
 export function fmtDuration(ms) {
@@ -120,8 +120,9 @@ export function calcSessionTime(entries) {
 }
 
 export function fmtNum(n) {
-  if (n >= 1_000_000) return fmtFixed(n / 1_000_000, 1) + 'M';
-  if (n >= 1_000)     return fmtFixed(n / 1_000, 1) + 'K';
+  if (n >= 1_000_000_000) return fmtFixed(n / 1_000_000_000, 2) + 'B';
+  if (n >= 1_000_000)     return fmtFixed(n / 1_000_000, 1) + 'M';
+  if (n >= 1_000)         return fmtFixed(n / 1_000, 1) + 'K';
   return String(n);
 }
 
@@ -247,7 +248,7 @@ async function writeClipboard(text) {
 
 export async function copyToClipboard(text, label = 'Copied') {
   const ok = await writeClipboard(text);
-  showToast(ok ? label : 'Could not copy — select the text and copy it manually', ok ? 'success' : 'error');
+  showToast(ok ? label : 'Could not copy: select the text and copy it manually', ok ? 'success' : 'error');
   return ok;
 }
 
@@ -302,6 +303,44 @@ function positionTip(tip, e) {
   if (y + th > window.innerHeight - pad) y = e.clientY - th - pad;
   tip.style.left = x + 'px';
   tip.style.top  = y + 'px';
+}
+
+export const BAR_COLORS = {
+  input:      'rgba(108,142,245,.9)',
+  output:     'rgba(167,139,250,.9)',
+  cacheWrite:   'rgba(251,191,36,.9)',
+  cacheWrite1h: 'rgba(217,119,6,.9)',
+  cacheRead:  'rgba(52,211,153,.9)',
+};
+
+export function tokenBar(parts) {
+  const totalTok = parts.reduce((sum, x) => sum + x.value, 0);
+  const wrap = domEl('div');
+  const bar = domEl('div', 'flex w-full rounded-full overflow-hidden');
+  bar.style.height = '10px';
+  bar.style.background = 'var(--color-base-300)';
+  if (totalTok > 0) {
+    for (const x of parts) {
+      if (!x.value) continue;
+      const seg = domEl('div');
+      seg.style.width = (x.value / totalTok * 100) + '%';
+      seg.style.background = x.color;
+      seg.title = `${x.label}: ${fmtNum(x.value)} (${fmtFixed(x.value / totalTok * 100, 1)}%)`;
+      bar.appendChild(seg);
+    }
+  }
+  wrap.appendChild(bar);
+  const legend = domEl('div', 'flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs');
+  for (const x of parts) {
+    const item = domEl('span', 'flex items-center gap-1.5');
+    const dot = domEl('span', 'rounded-full inline-block');
+    dot.style.cssText = `width:8px;height:8px;background:${x.color};`;
+    item.appendChild(dot);
+    item.appendChild(domText('span', 'opacity-70', `${x.label} ${fmtNum(x.value)}`));
+    legend.appendChild(item);
+  }
+  wrap.appendChild(legend);
+  return wrap;
 }
 
 export function cacheWriteSplitTitle(total, oneHour) {

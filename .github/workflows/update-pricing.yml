@@ -1,0 +1,44 @@
+name: Update Claude pricing
+
+on:
+  schedule:
+    - cron: '37 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-pricing
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Fetch the official pricing page and merge changes
+        run: node scripts/update-pricing.mjs
+
+      - name: Sanity-check the price list
+        run: node scripts/check-pricing.mjs
+
+      - name: Commit pricing.json if it changed
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet -- src/core/pricing.json; then
+            echo "No price changes, nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/pricing.json
+          git commit -F "$RUNNER_TEMP/pricing-commit-message.txt"
+          git pull --rebase
+          git push

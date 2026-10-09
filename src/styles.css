@@ -139,6 +139,13 @@
 .expand-wrap > .expand-content { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .expand-wrap { transition: none; } }
 
+#loading { min-height: calc(100vh - 6rem); }
+
+.modal-box {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
 .path-copy {
   font: inherit;
   color: var(--color-primary);

@@ -81,7 +81,7 @@ export function renderCards(entries) {
   let maxDay = '', maxCost = 0;
   for (const [d, c] of baseDayCosts) { if (c > maxCost) { maxCost = c; maxDay = d; } }
 
-  const fmt      = v => fmtMoney(v, 2);
+  const fmt      = v => fmtMoney(v);
   const dayCosts = buildDayCosts();
 
   const SESSION_TIME_TOOLTIP = 'Sum of each session\'s span: last message timestamp minus first message timestamp. Includes time you spent reading and thinking, not just Claude\'s processing time.';
@@ -202,9 +202,9 @@ export function renderBurnRate() {
     d.appendChild(l); d.appendChild(v);
     stats.appendChild(d);
   };
-  addRow('Spent',     fmtMoney(spent, 2),     spentColor);
-  addRow('Budget',    fmtMoney(budget, 2));
-  addRow('Projected', fmtMoney(projected, 2), projColor);
+  addRow('Spent',     fmtMoney(spent),     spentColor);
+  addRow('Budget',    fmtMoney(budget));
+  addRow('Projected', fmtMoney(projected), projColor);
   addRow('Day',       dayOfMonth + ' of ' + daysInMonth);
 
   wrap.appendChild(gaugeEl);

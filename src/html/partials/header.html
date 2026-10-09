@@ -39,11 +39,16 @@
         <input type="text" id="thousands-sep-input" maxlength="1" class="input input-border input-sm w-14 text-center" onchange="onSepChange()" title="Thousands separator for all displayed numbers — may be left empty for no grouping" />
       </label>
       <label class="flex items-center justify-between gap-3">
+        <span>Decimal places</span>
+        <input type="number" id="money-decimals-input" min="0" max="8" step="1" class="input input-border input-sm w-14 text-center" onchange="onDecimalsChange()" title="How many decimal places every cost amount is rounded to (0 to 8)" />
+      </label>
+      <label class="flex items-center justify-between gap-3">
         <span>Decimal separator</span>
         <input type="text" id="decimal-sep-input" maxlength="1" class="input input-border input-sm w-14 text-center" onchange="onSepChange()" title="Decimal separator for all displayed numbers" />
       </label>
-      <div class="border-t border-base-300 pt-3 text-xs opacity-50">
+      <div class="border-t border-base-300 pt-3 text-xs opacity-50 flex flex-col gap-0.5">
         <span id="last-updated"></span>
+        <span id="price-list-updated" title="Prices come from src/core/pricing.json, kept current by the update-pricing GitHub workflow. Pull and rebuild to pick up changes."></span>
       </div>
     </div>
   </div>

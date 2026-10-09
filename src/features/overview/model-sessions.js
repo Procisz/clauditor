@@ -1,7 +1,7 @@
 import { state } from '../../core/state.js';
 import { entryCost, cacheWrite1h } from '../../core/config.js';
 import { sessionType, sessionOrigin } from '../../core/parser.js';
-import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtInt, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName, cacheWriteSplitTitle } from '../../core/utils.js';
+import { domEl, domText, domCell, domClear, fmtNum, fmtMoney, fmtFixed, fmtInt, fmtDuration, shortPath, badgeClass, shortModelName, sessionName, buildPaginator, projectKey, projectName, cacheWriteSplitTitle, tokenBar, BAR_COLORS } from '../../core/utils.js';
 
 const COLUMNS = [
   { key: 'name',   label: 'Session',    cls: '' },
@@ -40,7 +40,7 @@ function getPanel(ns, key) {
   const k = panelId(ns, key);
   if (!Object.prototype.hasOwnProperty.call(state.modelPanels, k)) {
 
-    state.modelPanels[k] = { open: false, sortCol: 'date', sortDir: -1, pageSize: 5, pageIndex: 0 };
+    state.modelPanels[k] = { open: false, sortCol: 'cost', sortDir: 0, pageSize: 5, pageIndex: 0 };
   }
   return state.modelPanels[k];
 }
@@ -86,9 +86,12 @@ function sessionsWhere(entries, pred) {
   return list;
 }
 
+function effectiveSort(p) {
+  return p.sortDir === 0 ? { col: 'cost', dir: -1 } : { col: p.sortCol, dir: p.sortDir };
+}
+
 function sortSessions(list, p) {
-  const col = p.sortDir === 0 ? 'date' : p.sortCol;
-  const dir = p.sortDir === 0 ? -1 : p.sortDir;
+  const { col, dir } = effectiveSort(p);
   const cmp = {
     name:   (a, b) => a.name.localeCompare(b.name),
     date:   (a, b) => (a.minTs || '').localeCompare(b.minTs || ''),
@@ -192,7 +195,8 @@ function renderPanel(td, ns, key, entries) {
   for (const col of COLUMNS) {
     const th = domEl('th', ('sortable ' + col.cls).trim());
     th.textContent = col.label;
-    if (p.sortDir !== 0 && p.sortCol === col.key) th.classList.add(p.sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    const active = effectiveSort(p);
+    if (active.col === col.key) th.classList.add(active.dir === 1 ? 'sort-asc' : 'sort-desc');
     th.onclick = () => {
       if (p.sortDir === 0 || p.sortCol !== col.key) { p.sortCol = col.key; p.sortDir = 1; }
       else if (p.sortDir === 1) p.sortDir = -1;
@@ -248,7 +252,7 @@ function renderPanel(td, ns, key, entries) {
     cacheCell.title = `${fmtNum(s.cacheRead)} tokens read from cache · `
       + cacheWriteSplitTitle(s.cacheWrite, s.cacheWrite1h);
     str.appendChild(cacheCell);
-    str.appendChild(domCell('num', fmtMoney(s.base * state.markup, 4)));
+    str.appendChild(domCell('num', fmtMoney(s.base * state.markup)));
 
     if (s.rawSid) str.onclick = () => openSessionModal(s.rawSid);
     else str.classList.add('no-detail');
@@ -280,14 +284,6 @@ function ensureModal() {
   document.body.appendChild(modalEl);
 }
 
-const BAR_COLORS = {
-  input:      'rgba(108,142,245,.9)',
-  output:     'rgba(167,139,250,.9)',
-  cacheWrite:   'rgba(251,191,36,.9)',
-  cacheWrite1h: 'rgba(217,119,6,.9)',
-  cacheRead:  'rgba(52,211,153,.9)',
-};
-
 function statCard(label, value, color, sub) {
   const card = domEl('div', 'rounded-box p-3');
   card.style.background = `color-mix(in oklch, var(--color-${color}) 12%, transparent)`;
@@ -300,36 +296,6 @@ function statCard(label, value, color, sub) {
 
 function sectionTitle(text) {
   return domText('h4', 'text-xs font-semibold uppercase tracking-wide opacity-50 mt-5 mb-2', text);
-}
-
-function tokenBar(parts) {
-  const totalTok = parts.reduce((sum, x) => sum + x.value, 0);
-  const wrap = domEl('div');
-  const bar = domEl('div', 'flex w-full rounded-full overflow-hidden');
-  bar.style.height = '10px';
-  bar.style.background = 'var(--color-base-300)';
-  if (totalTok > 0) {
-    for (const x of parts) {
-      if (!x.value) continue;
-      const seg = domEl('div');
-      seg.style.width = (x.value / totalTok * 100) + '%';
-      seg.style.background = x.color;
-      seg.title = `${x.label}: ${fmtNum(x.value)} (${fmtFixed(x.value / totalTok * 100, 1)}%)`;
-      bar.appendChild(seg);
-    }
-  }
-  wrap.appendChild(bar);
-  const legend = domEl('div', 'flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs');
-  for (const x of parts) {
-    const item = domEl('span', 'flex items-center gap-1.5');
-    const dot = domEl('span', 'rounded-full inline-block');
-    dot.style.cssText = `width:8px;height:8px;background:${x.color};`;
-    item.appendChild(dot);
-    item.appendChild(domText('span', 'opacity-70', `${x.label} ${fmtNum(x.value)}`));
-    legend.appendChild(item);
-  }
-  wrap.appendChild(legend);
-  return wrap;
 }
 
 function metaItem(label, value) {
@@ -427,8 +393,8 @@ export function openSessionModal(sid) {
   modalBox.appendChild(head);
 
   const grid = domEl('div', 'grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4');
-  grid.appendChild(statCard('Final Cost', fmtMoney(t.base * state.markup, 4), 'primary',
-    state.markup !== 1 ? `base ${fmtMoney(t.base, 4)} × ${state.markup}` : 'no markup applied'));
+  grid.appendChild(statCard('Final Cost', fmtMoney(t.base * state.markup), 'primary',
+    state.markup !== 1 ? `base ${fmtMoney(t.base)} × ${state.markup}` : 'no markup applied'));
   grid.appendChild(statCard('API Calls', fmtNum(t.calls), 'secondary',
     durations.length ? `${fmtNum(durations.length)} turns` : ''));
   grid.appendChild(statCard('Tokens (in + out)', fmtNum(t.input + t.output), 'accent',
@@ -467,7 +433,7 @@ export function openSessionModal(sid) {
     mtr.appendChild(mtd);
     mtr.appendChild(domCell('num', fmtNum(m.calls)));
     mtr.appendChild(domCell('num', fmtNum(m.tokens)));
-    mtr.appendChild(domCell('num', fmtMoney(m.base * state.markup, 4)));
+    mtr.appendChild(domCell('num', fmtMoney(m.base * state.markup)));
     mbody.appendChild(mtr);
   }
   mtbl.appendChild(mbody);
@@ -479,7 +445,7 @@ export function openSessionModal(sid) {
     for (const [ag, a] of [...agents.entries()].sort((x, y) => y[1].base - x[1].base)) {
       const chip = domEl('span', 'badge badge-outline gap-1.5 py-3');
       chip.appendChild(domText('span', 'font-semibold', ag));
-      chip.appendChild(domText('span', 'opacity-60', `${fmtNum(a.calls)} calls · ${fmtMoney(a.base * state.markup, 4)}`));
+      chip.appendChild(domText('span', 'opacity-60', `${fmtNum(a.calls)} calls · ${fmtMoney(a.base * state.markup)}`));
       arow.appendChild(chip);
     }
     modalBox.appendChild(arow);
@@ -491,7 +457,7 @@ export function openSessionModal(sid) {
     for (const [level, ef] of effortsSorted(efforts)) {
       const chip = domEl('span', 'badge badge-outline gap-1.5 py-3');
       chip.appendChild(domText('span', 'badge badge-sm ' + effortBadgeClass(level), level));
-      chip.appendChild(domText('span', 'opacity-60', `${fmtNum(ef.calls)} calls · ${fmtMoney(ef.base * state.markup, 4)}`));
+      chip.appendChild(domText('span', 'opacity-60', `${fmtNum(ef.calls)} calls · ${fmtMoney(ef.base * state.markup)}`));
       erow.appendChild(chip);
     }
     if (effortUnknown > 0) {
@@ -511,7 +477,7 @@ export function openSessionModal(sid) {
   meta.appendChild(metaItem('Source', origin));
   meta.appendChild(metaItem('Active days', String(days.size)));
   meta.appendChild(cacheWriteMeta(t.cacheWrite, t.cacheWrite1h));
-  meta.appendChild(metaItem('Base cost', fmtMoney(t.base, 4)));
+  meta.appendChild(metaItem('Base cost', fmtMoney(t.base)));
   meta.appendChild(metaItem('Share of total spend', fmtFixed(share, 2) + '%'));
   if (peakContext > 0) {
 

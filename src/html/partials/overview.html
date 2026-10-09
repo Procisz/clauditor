@@ -8,20 +8,6 @@
 
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5" id="cards"></div>
 
-    <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
-    <div class="card-body p-4 gap-3">
-      <div class="flex items-center justify-between flex-wrap gap-2">
-        <h3 class="card-title text-base">Monthly Budget <span id="budget-info" class="flex items-center"></span></h3>
-        <label class="flex items-center gap-2 text-sm opacity-70">
-          Budget $<input type="number" id="budget-input" min="0" step="10" value="0" title="0 = budget tracking off"
-            class="input input-border input-sm w-24"
-            oninput="renderBurnRate()" />
-        </label>
-      </div>
-      <div id="burn-content"></div>
-    </div>
-  </div>
-
     <div class="card bg-base-100 card-border border-base-300 mb-4">
     <div class="card-body p-4 gap-3">
       <h3 class="card-title text-base">Model Breakdown <span id="model-sessions-total" class="text-sm font-normal opacity-50"></span> <span id="model-effort-mix" class="text-sm font-normal opacity-50"></span></h3>
@@ -42,6 +28,27 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+    <div class="card bg-base-100 card-border border-base-300 mb-4">
+    <div class="card-body p-4 gap-3">
+      <h3 class="card-title text-base">Token Usage <span class="text-sm font-normal opacity-50">(all time)</span></h3>
+      <div id="token-usage" class="flex flex-col gap-3"></div>
+    </div>
+  </div>
+
+    <div class="card bg-base-100 card-border border-base-300 mb-4" id="burn-section">
+    <div class="card-body p-4 gap-3">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h3 class="card-title text-base">Monthly Budget <span id="budget-info" class="flex items-center"></span></h3>
+        <label class="flex items-center gap-2 text-sm opacity-70">
+          Budget $<input type="number" id="budget-input" min="0" step="10" value="0" title="0 = budget tracking off"
+            class="input input-border input-sm w-24"
+            oninput="renderBurnRate()" />
+        </label>
+      </div>
+      <div id="burn-content"></div>
     </div>
   </div>
 

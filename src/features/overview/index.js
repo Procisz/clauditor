@@ -5,6 +5,7 @@ import { renderCards, renderBurnRate } from './cards.js';
 import { renderCostChart, renderTokenChart, renderCacheChart, renderTreemap, renderCumulativeSpend } from './charts.js';
 import { renderHeatmap } from './heatmap.js';
 import { renderModelTable, renderProjectsTable } from './tables.js';
+import { renderTokenUsage } from './tokens.js';
 import { renderTodayView } from '../today/index.js';
 
 function renderViewDependentCharts() {
@@ -17,6 +18,7 @@ function renderViewDependentCharts() {
   renderCacheChart(labels, data);
   renderModelTable(entries);
 
+  renderTokenUsage(state.allEntries);
   renderTreemap(state.allEntries);
   renderProjectsTable(state.allEntries);
   renderCumulativeSpend();
