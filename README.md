@@ -67,6 +67,10 @@ Source lives in `src/` (ES modules, no framework); `index.html` is an EJS templa
 | Firefox | No        | File System Access API not supported |
 | Safari  | Partial   | Works via file picker; folder not remembered between sessions |
 
+## Performance
+
+Claude Code transcripts grow large (every pasted or captured screenshot is stored inside them as text), and a few months of heavy use easily reaches several gigabytes. Clauditor keeps each file's parsed results in the browser (IndexedDB): after the first load, unchanged files are not read at all, and a session file that only grew is read from where it left off. Measured on 3 GB of logs: about 11 s to load before, 5 s for the first load now, and 0.2 s for every load after that. The cache rebuilds itself when you change timezone, and you can clear it with your browser's site data for Clauditor.
+
 ## Cost Calculation
 
 Costs are calculated from token counts using Anthropic's published pricing. No `costUSD` field in the JSONL is used or trusted.
@@ -92,7 +96,37 @@ Rates live in [`src/core/pricing.json`](src/core/pricing.json), which is the sin
 
 **Cache rates.** 5-minute writes, 1-hour writes and cache reads are priced separately per model, straight from the official table. Claude Code uses both cache lifetimes and reports the split in `usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}`; entries archived before that split existed carry only a total and are billed at the 5-minute rate.
 
-**Matching log ids.** Each entry matches a version-anchored pattern with an optional trailing date snapshot, so `claude-opus-4-1` cannot swallow a future `claude-opus-4-10`. A Claude model that matches only a bare family name is priced from that family's flagship and raises the warning banner until the workflow adds it. Models that are not Anthropic's (a locally-run `gpt-oss:20b`, say) cost nothing.
+**Matching log ids.** Each entry matches a version-anchored pattern, so `claude-opus-4-1` cannot swallow a future `claude-opus-4-10`. Cloud-provider spellings resolve to the same entry: Amazon Bedrock (`anthropic.claude-haiku-4-5-20251001-v1:0`, cross-region `us.`/`eu.`/`global.` prefixes, Messages-API ids such as `anthropic.claude-opus-4-7`, and inference-profile ARNs that contain the model id) and Google Vertex AI (`claude-sonnet-4-5@20250929`).
+
+**Models without an exact entry** are estimated and listed in the warning banner:
+- a Claude model whose family is recognisable (`claude-opus-6`, say) is priced like the newest model of that family in `pricing.json`, so the estimate stays current as the list grows;
+- any other Claude id, including an opaque Bedrock application-inference-profile ARN, gets default rates ($3/$15);
+- a model that is not Anthropic's (a locally-run `gpt-oss:20b`, say) costs nothing and is not flagged.
+
+**Adding a model by hand.** The warning banner has a **How to add** button that opens a guide with a ready-to-paste entry for each unpriced model: the right key derived from its id, prefilled with the rates currently used as the estimate, and shown in place inside `pricing.json`. Ids without a model name get the `aliases` form instead. By hand, it works like this: add an entry to `src/core/pricing.json`. The key is the part of the id that names the model; it matches any id containing it as a whole version, with or without a date, provider prefix or revision suffix:
+
+```json
+"acme-2": {
+  "name": "Claude Acme 2",
+  "history": [
+    { "input": 3, "output": 15, "cacheWrite5m": 3.75, "cacheWrite1h": 6, "cacheRead": 0.3 }
+  ]
+}
+```
+
+For an id that does not contain a model name at all, such as a Bedrock application inference profile, add it to the `aliases` of the model it runs, matched exactly (case does not matter):
+
+```json
+"sonnet-4-5": {
+  "name": "Claude Sonnet 4.5",
+  "aliases": ["arn:aws:bedrock:eu-central-1:123456789012:application-inference-profile/abc123"],
+  "history": [ ... ]
+}
+```
+
+Run `npm run check:pricing`, then commit. The workflow never deletes models and never touches `aliases`, so hand-made entries survive its updates.
+
+**Cloud billing.** Prices are Anthropic's first-party list prices. On Bedrock or Vertex AI your bill can differ: regional and multi-region endpoints cost 10% more than global ones, and companies often have negotiated discounts. For a flat difference, set the markup multiplier in Settings (1.1 for regional endpoints, for example).
 
 **Running it by hand.** `npm run update:pricing` performs the same update locally; `npm run check:pricing` validates the list (structure, rate ordering, id resolution, time and tier selection, the page parser). The parser refuses to guess: an unknown column, a cell with more than one price, a model name it can't map, or markup it doesn't recognise makes the workflow fail, GitHub emails you, and `pricing.json` keeps the last good prices. To skip a row on purpose, add its name to `IGNORED_ROWS` in `scripts/update-pricing.mjs`.
 

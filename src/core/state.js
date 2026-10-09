@@ -20,4 +20,5 @@ export const state = {
   thousandsSep:  ',',
   decimalSep:    '.',
   moneyDecimals: 2,
+  unpricedModels: [],
 };

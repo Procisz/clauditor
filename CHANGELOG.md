@@ -7,6 +7,9 @@ All notable changes to Clauditor are documented here.
 ### 💰 Pricing
 - **Prices update themselves.** A daily GitHub workflow reads Anthropic's official pricing page and commits `src/core/pricing.json` when a price changes or a model appears; no third-party data source. Pull and rebuild to pick up new prices; Settings shows the price list date
 - **Prices are tracked over time.** Each model keeps a dated rate history and every request is priced at the rate in force when it ran, so a later price change never rewrites past costs
+- The updater keeps `pricing.json`'s own indentation (tabs after a Prettier save, or spaces), so an automatic commit shows only the price change instead of reformatting the whole file
+- **How to add** button on the unpriced-model banner: opens a guide with a ready-to-paste, one-property-per-line `pricing.json` entry for each flagged model (key derived from its id, rates prefilled from the current estimate, shown in place with a copy button), the `aliases` form for ids without a model name, and the mapping from each field to the column on Anthropic's pricing page
+- Models can be added to `pricing.json` by hand (enterprise-only or legacy models), and an optional `aliases` list prices opaque ids such as Bedrock application inference profiles as a given model; the updater preserves both
 - **Prompt-length tiers** (Claude Haiku 5.5 charges more above 100,000 prompt tokens): each request picks its tier from input + cache read + cache write, as Anthropic bills it
 - New models from the official page: Claude Opus 5.5 ($4/$20, cache read 0.05 x input), Claude Sonnet 5.5 ($2/$10, cache read 0.05 x), Claude Haiku 5.5 (tiered). Opus 5.5 was priced by the generic Opus estimate ($5/$25, 0.1 x cache read); on the owner's logs the correction is $7,695.55 to $3,964.93 across 51,784 requests
 - **Cache writes are billed by TTL.** Anthropic charges a 1-hour cache write at 2 × input and a 5-minute write at 1.25 ×; Clauditor charged everything at the 5-minute rate. Claude Code writes both, and on a real agentic corpus ~80% of written tokens are 1-hour writes — measured on 20k sessions the correction is **+12.7% of total spend**. The split comes from `usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}` and is surfaced in the session modal (token distribution bar and a "% written for 1 hour" line), the Model Breakdown cache column, the session explorer's cache tooltip, the Today cache card, the Token Breakdown chart, the Today token donut, and two new CSV columns
@@ -17,12 +20,22 @@ All notable changes to Clauditor are documented here.
 - Sonnet 5 stays at $2/$10: the increase to $3/$15 scheduled for 2026-09-01 was cancelled and the introductory rate became standard
 - `claude-opus-4` (the dateless Opus 4 id) was priced at the current $5/$25 Opus rate instead of the retired $15/$75 — the `opus-4` pattern carried the newer rate while the legacy rate was reachable only through longer date-shaped patterns
 
+### ⚡ Performance
+- **Loading is incremental.** Each log file's parsed results are cached in IndexedDB; unchanged files are skipped and a growing session file is read only from where it left off (JSONL is append-only, verified with a fingerprint of the bytes before the resume point). On a 3 GB log folder: 11.3 s per load before, 5.4 s for the first load and 0.21 s for every later one, with byte-identical results
+- Lines that cannot hold usage, turn durations or titles are skipped before `JSON.parse` (about half the parse time, 58% fewer objects), and files are read concurrently under a memory budget
+- A session file that changes while it is being read (the live session) is re-opened and retried instead of failing the whole load; a file that stays unreadable falls back to its cached data
+
 ### 🐛 Bug Fixes
+- Amazon Bedrock model ids with a revision suffix (`anthropic.claude-haiku-4-5-20251001-v1:0`, `us.anthropic.claude-sonnet-4-5-...-v1:0`) missed their exact price and fell back to a family estimate, which undercounted Sonnet 4.5 by a third ($2/$10 instead of $3/$15); they now resolve exactly, as do Vertex AI ids (`@YYYYMMDD`) and inference-profile ARNs that contain the model id
+- An opaque Bedrock application-inference-profile ARN was treated as a free local model and silently priced at $0; it is now estimated at default rates and flagged
+- Family estimates for unrecognised models were hard-coded and had gone stale (Opus at $5 while Opus 5.5 is $4, Haiku at $1 while Haiku 5.5 is $0.10); they now follow the newest model of each family in the price list
+- The unpriced-model banner pointed to `src/core/config.js`, where prices no longer live; it now points to `src/core/pricing.json`
 - A Claude model newer than the pricing table was priced silently and never reached the warning banner: bare family patterns (`opus`, `sonnet`, `haiku`, `fable`) match any version, so `getUnknownModels()` — which only flagged `PRICING_DEFAULT` — stayed quiet. Family rows are now `approx` and flag, restoring the guarantee documented in the README (this is the failure mode of 1.12.1, where `sonnet-5`/`opus-5` were mispriced by 30-50% undetected)
 - Version patterns are anchored, so a two-digit minor version can no longer be captured by its one-digit prefix (`claude-opus-4-10` resolved to the retired Opus 4.1 row at $15/$75, a silent 3× overcharge)
 - Fable and Mythos were missing from the model badge and label helpers: Fable rendered in Sonnet's colour, and `claude-fable-5` / `claude-fable-5-1` collapsed to the same truncated `claude-fable` chip in the session modal
 
 ### ✨ New Features
+- The data-source page lays the Claude Code and Cowork sources out side by side (stacked on narrow screens), with their paths and Browse buttons aligned
 - The loading state (spinner + "Scanning files…") is centred in the viewport instead of sitting under the header
 - Settings → **Decimal places**: how many decimals every cost amount is rounded to (0 to 8, default 2, persisted). Applies to all cost displays: cards, tables, session panels and modal, chart axes and tooltips, heatmap. Costs previously showed a fixed mix of 2, 4 and 6 decimals depending on the surface
 - No modal is taller than 80% of the viewport: the session detail and settings dialogs cap at 80vh and scroll inside the box (a long session's Models/Agents tables used to push the dialog to nearly the full window height)

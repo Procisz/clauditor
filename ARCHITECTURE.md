@@ -71,7 +71,7 @@ flowchart TD
 flowchart TD
     a(["loadAndRender(dirHandle)"]) --> b["readArchive(archiveHandle, fromMonth)<br/>only months ≥ date-from filter"]
     b --> c["collectJsonlFiles(dirHandle)<br/>recursive walk; subagents/ dirs read<br/>.meta.json first for agentType"]
-    c --> d["Per file: readJsonlFile →<br/>parseEntries + parseDurations"]
+    c --> d["readLogFiles: per-file cache in IndexedDB<br/>unchanged = skip, grown = read tail only,<br/>else parseLogLines + parseEntries + parseDurations"]
     d --> e["Merge archive + live entries<br/>into state.allEntries"]
     e --> f["Dedupe by message ID<br/>(keep entry with highest output tokens)"]
     f --> g["Sort by timestamp"]

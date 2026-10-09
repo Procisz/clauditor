@@ -1,10 +1,12 @@
 import PRICE_LIST from '../src/core/pricing.json' with { type: 'json' };
 import {
-  PRICING, PRICING_DEFAULT, RATE_KEYS, buildPricing, getPricing, getUnknownModels, priceAt, resolvePrice,
+  PRICING, PRICING_DEFAULT, RATE_KEYS, FAMILY_FALLBACKS, modelVersion, buildPricing, getPricing, getUnknownModels, priceAt, resolvePrice,
   tierAt, promptTokens, costByType, entryCost, entryCostByType, cacheWrite5m, cacheWrite1h,
 } from '../src/core/config.js';
+import { suggestKey, suggestName, entrySnippet, aliasSnippet } from '../src/features/pricing-help.js';
+import { readFileSync } from 'node:fs';
 import {
-  modelId, cleanModelName, normalizeCell, parsePrice, tierQualifier, parsePricingTable, validateRows, mergePriceList, PricingError,
+  detectIndent, serializePriceList, modelId, cleanModelName, normalizeCell, parsePrice, tierQualifier, parsePricingTable, validateRows, mergePriceList, PricingError,
 } from './update-pricing.mjs';
 
 let failures = 0;
@@ -28,6 +30,7 @@ for (const id of ids) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) problems.push('invalid id');
   if (typeof m.name !== 'string' || !m.name) problems.push('missing name');
   if (!Array.isArray(m.history) || !m.history.length) problems.push('empty history');
+  if (m.aliases !== undefined && !(Array.isArray(m.aliases) && m.aliases.every(a => typeof a === 'string' && a.trim()))) problems.push('aliases must be a list of model id strings');
   (m.history || []).forEach((h, i) => {
     if (i > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(h.from || '')) problems.push(`version ${i} has no valid "from" date`);
     if (i > 0 && h.from <= (m.history[i - 1].from || '')) problems.push(`version ${i} "from" is not after the previous one`);
@@ -45,6 +48,9 @@ for (const id of ids) {
   check(`'${id}' is well formed`, problems.length === 0, problems.join('; '));
 }
 
+const allAliases = ids.flatMap(id => (PRICE_LIST.models[id].aliases || []).map(a => a.toLowerCase()));
+check('no alias is listed under two models', new Set(allAliases).size === allAliases.length);
+
 console.log('Every listed model resolves to its own entry:');
 for (const id of ids) {
   const latest = PRICE_LIST.models[id].history.at(-1);
@@ -60,6 +66,17 @@ const LOG_IDS = {
   'claude-haiku-4-5-20251001': 'haiku-4-5', 'claude-3-5-haiku-20241022': '3-5-haiku', 'claude-3-haiku-20240307': '3-haiku',
   'claude-3-5-sonnet-20240620': '3-5-sonnet', 'claude-3-7-sonnet-20250219': '3-7-sonnet', 'claude-3-sonnet-20240229': '3-sonnet',
   'claude-3-opus-20240229': '3-opus',      'claude-fable-5-1': 'fable-5-1',          'claude-fable-5': 'fable-5',
+  'anthropic.claude-haiku-4-5-20251001-v1:0': 'haiku-4-5',
+  'us.anthropic.claude-sonnet-4-5-20250929-v1:0': 'sonnet-4-5',
+  'global.anthropic.claude-opus-4-5-20251101-v1:0': 'opus-4-5',
+  'eu.anthropic.claude-3-7-sonnet-20250219-v1:0': '3-7-sonnet',
+  'anthropic.claude-3-5-sonnet-20241022-v2:0': '3-5-sonnet',
+  'anthropic.claude-opus-4-1-20250805-v1:0': 'opus-4-1',
+  'anthropic.claude-opus-4-20250514-v1:0': 'opus-4',
+  'anthropic.claude-opus-4-7': 'opus-4-7',
+  'claude-sonnet-4-5@20250929': 'sonnet-4-5',
+  'claude-opus-4-1@20250805': 'opus-4-1',
+  'arn:aws:bedrock:us-east-1:111122223333:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0': 'haiku-4-5',
 };
 for (const [model, want] of Object.entries(LOG_IDS)) {
   const got = getPricing(model).id;
@@ -74,11 +91,25 @@ const firstFamily = PRICING.findIndex(r => r.versions[0].approx);
 check('every exact entry precedes the family fallbacks',
   firstFamily !== -1 && PRICING.slice(firstFamily).every(r => r.versions[0].approx) && PRICING.slice(0, firstFamily).every(r => !r.versions[0].approx));
 
+check('a family estimate follows the newest model of that family in the list', FAMILY_FALLBACKS.every(f => {
+  const newest = ids.filter(id => modelVersion(id, f.id) !== null).sort((a, b) => modelVersion(b, f.id) - modelVersion(a, f.id))[0];
+  return !newest || (f.basedOn === newest && RATE_KEYS.every(k => near(f.versions[0][k], PRICE_LIST.models[newest].history.at(-1)[k])));
+}));
+check('family versions order numerically (5.10 is newer than 5.9)', modelVersion('opus-5-10', 'opus') > modelVersion('opus-5-9', 'opus')
+  && modelVersion('3-5-haiku', 'haiku') === 3.05 && modelVersion('opus-4', 'opus') === 4 && modelVersion('sonnet-5', 'opus') === null);
+
 console.log('Unpriced-model detection:');
 for (const model of ['claude-next-9', 'claude-opus-999', 'claude-sonnet-999', 'claude-haiku-999', 'claude-fable-999', 'claude-mythos-999']) {
   check(`'${model}' is flagged`, getUnknownModels([model]).length === 1, `getPricing -> '${getPricing(model).id}'`);
 }
 check("'unknown' and '<synthetic>' placeholders are not flagged", getUnknownModels(['unknown', '<synthetic>']).length === 0);
+const profileArn = 'arn:aws:bedrock:us-east-1:111122223333:application-inference-profile/abc123';
+check('an opaque Bedrock inference-profile ARN is never treated as a free local model', getPricing(profileArn) === PRICING_DEFAULT
+  && getUnknownModels([profileArn]).length === 1 && entryCost({ model: profileArn, input: M }) > 0);
+const aliased = buildPricing({ models: { 'haiku-9': { name: 'Claude Haiku 9', aliases: ['ARN:aws:bedrock:eu-west-1:1:application-inference-profile/XYZ'], history: [rates(1, 5)] } } });
+check('an alias prices an opaque id as its model, matched case-insensitively',
+  resolvePrice(aliased, 'arn:aws:bedrock:eu-west-1:1:application-inference-profile/xyz').id === 'haiku-9'
+  && resolvePrice(aliased, 'arn:aws:bedrock:eu-west-1:1:application-inference-profile/other') === PRICING_DEFAULT);
 check('listed models are not flagged', getUnknownModels(ids.map(id => `claude-${id}`)).length === 0);
 
 console.log('Prices that change over time:');
@@ -221,11 +252,48 @@ check('a change before a hand-entered future price is inserted in date order',
   early.list.models['opus-9'].history.map(h => h.from || '').join(',') === ',2026-10-09,2026-12-01');
 check('a page matching a scheduled price that is now in force is no change',
   mergePriceList(scheduled, [{ id: 'opus-9', name: 'Claude Opus 9', price: rates(6, 30) }], '2026-12-05').changes.length === 0);
+const withAlias = { models: { 'opus-9': { name: 'Claude Opus 9', aliases: ['arn:x'], history: [rates(5, 25)] } } };
+check('the updater keeps hand-added aliases when it records a price change',
+  mergePriceList(withAlias, [{ id: 'opus-9', name: 'Claude Opus 9', price: rates(6, 30) }], '2026-10-09').list.models['opus-9'].aliases.join() === 'arn:x');
 const retired = mergePriceList(base, [], '2026-10-09');
 check('a model missing from the page is kept (retired models still price old logs)', !!retired.list.models['opus-9'] && retired.changes.length === 0);
 const retiered = mergePriceList({ models: { 'haiku-9': { name: 'Claude Haiku 9', history: [byId['haiku-9'].price] } } },
   [{ id: 'haiku-9', name: 'Claude Haiku 9', price: { ...byId['haiku-9'].price, tiers: [{ ...byId['haiku-9'].price.tiers[0], above: 200000 }] } }], '2026-10-09');
 check('a moved tier threshold is a price change', retiered.changes.length === 1 && retiered.list.models['haiku-9'].history[1].tiers[0].above === 200000);
+
+console.log('The in-app "How to add" guide produces entries that work:');
+check('it derives the entry key from first-party, Bedrock and Vertex ids', suggestKey('claude-opus-5-5') === 'opus-5-5'
+  && suggestKey('anthropic.claude-haiku-4-5-20251001-v1:0') === 'haiku-4-5' && suggestKey('us.anthropic.claude-acme-2-20261001-v1:0') === 'acme-2'
+  && suggestKey('claude-sonnet-4-5@20250929') === 'sonnet-4-5' && suggestKey('claude-opus-4-8[1m]') === 'opus-4-8' && suggestKey('claude-3-5-haiku-20241022') === '3-5-haiku');
+check('it falls back to the aliases form for ids without a model name', suggestKey('arn:aws:bedrock:eu-central-1:1:application-inference-profile/abc123') === null);
+check('it names models the way the pricing page does', suggestName('opus-5-5') === 'Claude Opus 5.5' && suggestName('3-5-haiku') === 'Claude Haiku 3.5'
+  && suggestName('opus-4') === 'Claude Opus 4' && suggestName('acme-2') === 'Claude Acme 2');
+const fileText = readFileSync(new URL('../src/core/pricing.json', import.meta.url), 'utf8');
+const pasteAfterModels = snippet => fileText.replace(/("models":\s*\{\n)/, `$1${snippet}\n`);
+const pasted = (() => { try { return JSON.parse(pasteAfterModels(entrySnippet('acme-2', 'Claude Acme 2', rates(3, 15)))); } catch { return null; } })();
+check('an entry pasted right after "models": { keeps pricing.json valid JSON', pasted !== null);
+check('the pasted entry prices the model exactly, including its Bedrock spelling', !!pasted
+  && resolvePrice(buildPricing(pasted), 'us.anthropic.claude-acme-2-20261001-v1:0', '').id === 'acme-2'
+  && resolvePrice(buildPricing(pasted), 'claude-acme-2', '').input === 3);
+const firstId = ids[0];
+const withAliasText = fileText.replace(new RegExp(`("${firstId}": \\{\\n\\s*"name": "[^"]*",\\n)`), `$1${aliasSnippet('arn:aws:bedrock:x:1:application-inference-profile/abc')}\n`);
+const aliasPasted = (() => { try { return JSON.parse(withAliasText); } catch { return null; } })();
+check('an alias line pasted under a model name keeps pricing.json valid and prices the opaque id', !!aliasPasted && withAliasText !== fileText
+  && resolvePrice(buildPricing(aliasPasted), 'arn:aws:bedrock:x:1:application-inference-profile/abc', '').id === firstId);
+
+console.log('The updater keeps the file\'s own formatting:');
+check('indentation is detected as tabs, two spaces or four spaces', detectIndent('{\n\t"a": 1\n}') === '\t'
+  && detectIndent('{\n  "a": 1\n}') === '  ' && detectIndent('{\n    "a": 1\n}') === '    ' && detectIndent('{}') === '  ');
+check('a rewrite with the detected indentation changes nothing but the data', (() => {
+  const list = JSON.parse(fileText);
+  return ['\t', '  '].every(ind => {
+    const text = serializePriceList(list, ind);
+    return serializePriceList(JSON.parse(text), detectIndent(text)) === text;
+  });
+})());
+if (serializePriceList(JSON.parse(fileText), detectIndent(fileText)) !== fileText) {
+  warn('src/core/pricing.json is not formatted the way the updater writes it; the next automatic update will reformat it');
+}
 
 console.log(`\n${warnings} warning(s).`);
 if (failures) { console.error(`${failures} check(s) failed`); process.exit(1); }

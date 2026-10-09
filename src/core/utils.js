@@ -71,10 +71,11 @@ export function updatePricingWarning(unknownModels) {
   if (!el) return;
   const dismissals = readDismissals();
   const toShow = (unknownModels || []).filter(m => !(('pricing:' + m) in dismissals));
+  state.unpricedModels = toShow;
   if (toShow.length === 0) { el.style.display = 'none'; return; }
   document.getElementById('pricing-warning-text').textContent =
-    'No exact pricing entry for: ' + toShow.join(', ')
-    + ' — their costs are estimated, not exact. Add entries in src/core/config.js.';
+    'No exact price for: ' + toShow.join(', ')
+    + '. Their costs are estimated from the closest model family (or default rates). To price them exactly, add them to src/core/pricing.json.';
   document.getElementById('pricing-warning-close').onclick = () => {
     dismissForAMonth(toShow.map(m => 'pricing:' + m));
     el.style.display = 'none';

@@ -11,6 +11,7 @@ import { showLoading, hideLoading } from './core/utils.js';
 import { initTheme, toggleTheme } from './core/theme.js';
 import { getFilteredEntries } from './core/parser.js';
 import { makeInfoIcon, initDismissableNote, initPathCopy } from './core/utils.js';
+import { openPricingHelp } from './features/pricing-help.js';
 
 import { renderAll, setView, onMarkupChange, exportCsv } from './features/overview/index.js';
 import { destroyOverviewCharts, resizeOverviewCharts } from './features/overview/charts.js';
@@ -92,6 +93,7 @@ function rerenderAfterSettingChange() {
 Object.assign(window, {
   toggleTheme: () => { toggleTheme(); if (state.allEntries.length > 0) { if (state.activeTab === 'today') { destroyTodayCharts(); renderTodayView(); } else renderAll(); } },
   browseCodeFolder, browseCoworkFolder, onCodeFilesPicked, onCoworkPicked, openDashboard, showSources,
+  openPricingHelp,
   loadFromFileInput, reauthorize, showFreshSelect, refreshData,
   selectArchiveFolder: () => selectArchiveFolder(() => presentDashboard()),
   renderAll, onMarkupChange, renderBurnRate, setView,

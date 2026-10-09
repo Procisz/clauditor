@@ -146,6 +146,17 @@
   overflow-y: auto;
 }
 
+.pricing-help-code { tab-size: 2; }
+.pricing-help-content { display: inline-block; min-width: 100%; }
+
+.pricing-help-new {
+  display: block;
+  margin: 0 -0.75rem;
+  padding: 0 calc(0.75rem - 3px);
+  border-left: 3px solid var(--color-success);
+  background: color-mix(in oklch, var(--color-success) 18%, transparent);
+}
+
 .path-copy {
   font: inherit;
   color: var(--color-primary);

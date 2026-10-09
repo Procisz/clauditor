@@ -1,4 +1,4 @@
-export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = false) {
+export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = false, prefix = '') {
   const dirEntries = [];
   for await (const [name, entry] of dirHandle.entries()) dirEntries.push([name, entry]);
 
@@ -16,26 +16,13 @@ export async function collectJsonlFiles(dirHandle, files = [], isSubagentsDir = 
   }
 
   for (const [name, entry] of dirEntries) {
-
     if (name === 'audit.jsonl') continue;
     if (entry.kind === 'file' && name.endsWith('.jsonl')) {
       const agentType = isSubagentsDir ? (metaMap[name.replace('.jsonl', '')] || 'agent') : 'main';
-      files.push({ handle: entry, agentType });
+      files.push({ handle: entry, agentType, path: prefix + name });
     } else if (entry.kind === 'directory') {
-      await collectJsonlFiles(entry, files, name === 'subagents');
+      await collectJsonlFiles(entry, files, name === 'subagents', prefix + name + '/');
     }
   }
   return files;
-}
-
-export async function readJsonlFile(fileHandle) {
-  const file = await fileHandle.getFile();
-  const text = await file.text();
-  const records = [];
-  for (const line of text.split('\n')) {
-    const l = line.trim();
-    if (!l) continue;
-    try { records.push(JSON.parse(l)); } catch {}
-  }
-  return records;
 }

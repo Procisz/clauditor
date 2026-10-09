@@ -4,6 +4,10 @@ import { state } from './state.js';
 import { showError, domEl, domText, domClear, fmtInt } from './utils.js';
 import { hasNativeBridge, nativeInit } from './native.js';
 
+const progressTo = id => (done, total) => {
+  if (done === total || done % 25 === 0) setStatus(id, 'load', `Reading logs… ${fmtInt(done)} / ${fmtInt(total)} files`);
+};
+
 function setStatus(id, kind, msg) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -29,7 +33,7 @@ export async function browseCodeFolder() {
     const handle = await window.showDirectoryPicker({ mode: 'read' });
     setStatus('status-code', 'load', 'Reading folder…');
     await saveHandle(handle);
-    const stats = await loadCodeData(handle);
+    const stats = await loadCodeData(handle, progressTo('status-code'));
     if (stats.entries === 0) {
       setStatus('status-code', 'err', `No usage records found in “${handle.name}” — did you select .claude/projects?`);
     } else {
@@ -46,8 +50,8 @@ export async function onCodeFilesPicked(fileList) {
   try {
     setStatus('status-code', 'load', 'Reading folder…');
     const all = Array.from(fileList);
-    const stats = await loadCodeDataFromFiles(all);
-    const cw = await loadCoworkData(all);
+    const stats = await loadCodeDataFromFiles(all, progressTo('status-code'));
+    const cw = await loadCoworkData(all, progressTo('status-code'));
     if (stats.entries === 0 && cw.entries === 0) {
       setStatus('status-code', 'err', 'No usage records found — did you select .claude/projects?');
     } else {
@@ -69,7 +73,7 @@ export async function onCoworkPicked(fileList) {
   const input = document.getElementById('cowork-input');
   try {
     setStatus('status-cowork', 'load', 'Reading folder…');
-    const { tasks, entries } = await loadCoworkData(fileList);
+    const { tasks, entries } = await loadCoworkData(fileList, progressTo('status-cowork'));
     if (tasks === 0) {
       setStatus('status-cowork', 'err', 'No Cowork tasks found — select the local-agent-mode-sessions folder itself');
     } else {

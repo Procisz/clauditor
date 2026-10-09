@@ -5,13 +5,14 @@ import { dayKey, todayKey, getWeekKey, getMonthKey } from './dates.js';
 export function entryKey(e)    { return e.msgId || (e.ts + '|' + e.sessionId); }
 export function durationKey(d) { return d.ts + '|' + d.sessionId; }
 
-export function parseJsonlLines(text) {
+const LOG_LINE_MARKERS = /"usage"|"turn_duration"|"custom-title"/;
+
+export function parseLogLines(text) {
   const records = [];
   if (!text) return records;
   for (const line of text.split('\n')) {
-    const l = line.trim();
-    if (!l) continue;
-    try { records.push(JSON.parse(l)); } catch {}
+    if (!line || !LOG_LINE_MARKERS.test(line)) continue;
+    try { records.push(JSON.parse(line)); } catch {}
   }
   return records;
 }

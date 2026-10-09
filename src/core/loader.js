@@ -1,7 +1,8 @@
-import { collectJsonlFiles, readJsonlFile } from './fs.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, entryKey, parseJsonlLines } from './parser.js';
+import { collectJsonlFiles } from './fs.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, entryKey } from './parser.js';
+import { readLogFiles, mapLimit } from './logcache.js';
 import { state } from './state.js';
-import { showLoading, hideLoading, showDashboard, showError, hideError, updatePricingWarning, updateCoworkWarning } from './utils.js';
+import { showLoading, hideLoading, setLoadingText, showDashboard, showError, hideError, updatePricingWarning, updateCoworkWarning, fmtInt } from './utils.js';
 import { getArchiveHandle, readArchive, writeArchive } from './archive.js';
 import { todayKey } from './dates.js';
 import { getUnknownModels } from './config.js';
@@ -9,32 +10,41 @@ import { getUnknownModels } from './config.js';
 let _renderCallback = null;
 export function setRenderCallback(fn) { _renderCallback = fn; }
 
-export async function loadCodeData(dirHandle) {
+async function archiveBase() {
   const archiveHandle = await getArchiveHandle().catch(() => null);
   const dateFrom = localStorage.getItem('clauditor_date_from') || '';
   const fromMonth = dateFrom ? dateFrom.slice(0, 7) : '';
   const { entries, durations, titles } = await readArchive(archiveHandle, fromMonth);
-  const src = { entries: [...entries], durations: [...durations], titles: new Map(titles), liveSids: new Set() };
-
-  const files = await collectJsonlFiles(dirHandle);
-  for (const { handle, agentType } of files) {
-    const records = await readJsonlFile(handle);
-    src.entries.push(...parseEntries(records, agentType));
-    src.durations.push(...parseDurations(records));
-    for (const [sid, t] of parseSessionTitles(records)) { src.titles.set(sid, t); src.liveSids.add(sid); }
-  }
-  state.srcCode = src;
-  state.srcCodeFromHandle = true;
-  return { files: files.length, entries: src.entries.length };
+  return { entries: [...entries], durations: [...durations], titles: new Map(titles), liveSids: new Set() };
 }
 
-export async function loadCodeDataFromFiles(all) {
-  const archiveHandle = await getArchiveHandle().catch(() => null);
-  const dateFrom = localStorage.getItem('clauditor_date_from') || '';
-  const fromMonth = dateFrom ? dateFrom.slice(0, 7) : '';
-  const { entries, durations, titles } = await readArchive(archiveHandle, fromMonth);
-  const src = { entries: [...entries], durations: [...durations], titles: new Map(titles), liveSids: new Set() };
+const parseCodeFile = (records, item) => ({
+  entries: parseEntries(records, item.args),
+  durations: parseDurations(records),
+  titles: [...parseSessionTitles(records)],
+});
 
+function addCodeResults(src, results) {
+  for (const r of results) {
+    for (const e of r.entries) src.entries.push(e);
+    for (const d of r.durations) src.durations.push(d);
+    for (const [sid, t] of r.titles) { src.titles.set(sid, t); src.liveSids.add(sid); }
+  }
+}
+
+export async function loadCodeData(dirHandle, onProgress) {
+  const src = await archiveBase();
+  const files = await collectJsonlFiles(dirHandle);
+  const items = files.map(f => ({ path: f.path, args: f.agentType, getFile: () => f.handle.getFile() }));
+  const { results, stats } = await readLogFiles('code-fsa', items, parseCodeFile, { onProgress });
+  addCodeResults(src, results);
+  state.srcCode = src;
+  state.srcCodeFromHandle = true;
+  return { files: files.length, entries: src.entries.length, cache: stats };
+}
+
+export async function loadCodeDataFromFiles(all, onProgress) {
+  const src = await archiveBase();
   const metaMap = new Map();
   for (const file of all) {
     const path = file.webkitRelativePath;
@@ -46,62 +56,66 @@ export async function loadCodeDataFromFiles(all) {
     }
   }
   const jsonlFiles = all.filter(f => f.webkitRelativePath.endsWith('.jsonl') && !f.webkitRelativePath.endsWith('/audit.jsonl'));
-  for (const file of jsonlFiles) {
+  const items = jsonlFiles.map(file => {
     const path = file.webkitRelativePath;
-    const isSubagent = path.includes('/subagents/');
-    const agentType = isSubagent ? (metaMap.get(path.replace('.jsonl', '')) || 'agent') : 'main';
-    const records = parseJsonlLines(await file.text());
-    src.entries.push(...parseEntries(records, agentType));
-    src.durations.push(...parseDurations(records));
-    for (const [sid, t] of parseSessionTitles(records)) { src.titles.set(sid, t); src.liveSids.add(sid); }
-  }
+    const agentType = path.includes('/subagents/') ? (metaMap.get(path.replace('.jsonl', '')) || 'agent') : 'main';
+    return { path, file, args: agentType };
+  });
+  const { results, stats } = await readLogFiles('code-files', items, parseCodeFile, { onProgress });
+  addCodeResults(src, results);
   state.srcCode = src;
   state.srcCodeFromHandle = false;
-  return { files: jsonlFiles.length, entries: src.entries.length };
+  return { files: jsonlFiles.length, entries: src.entries.length, cache: stats };
 }
 
-export async function loadCoworkData(fileList) {
+const parseCoworkFile = (records, item) => item.kind === 'audit'
+  ? { entries: parseCoworkEntries(records, item.taskId), durations: [], titles: [] }
+  : {
+      entries: parseEntries(records, item.agentType).map(e => ({ ...e, sessionId: item.taskId, sessionKind: 'cowork', entrypoint: 'claude-desktop' })),
+      durations: parseDurations(records).map(d => ({ ...d, sessionId: item.taskId })),
+      titles: [],
+    };
+
+export async function loadCoworkData(fileList, onProgress) {
   const all = Array.from(fileList);
   const src = { entries: [], durations: [], titles: new Map() };
-  let tasks = 0;
   const metaByPath = new Map(all.filter(f => /\/local_[^/]+\.json$/.test(f.webkitRelativePath)).map(f => [f.webkitRelativePath, f]));
-  for (const af of all.filter(f => f.webkitRelativePath.endsWith('/audit.jsonl'))) {
-    tasks++;
-    const parts = af.webkitRelativePath.split('/');
+  const auditFiles = all.filter(f => f.webkitRelativePath.endsWith('/audit.jsonl'));
+  const auditItems = auditFiles.map(file => {
+    const parts = file.webkitRelativePath.split('/');
     const dirName = parts[parts.length - 2];
     const taskId = dirName.replace(/^local_/, '');
-    src.entries.push(...parseCoworkEntries(parseJsonlLines(await af.text()), taskId));
-    const mf = metaByPath.get(parts.slice(0, -2).join('/') + '/' + dirName + '.json');
-    if (mf) {
-      try {
-        const meta = JSON.parse(await mf.text());
-        if (meta.title) src.titles.set(taskId, meta.title);
-      } catch {}
-    }
-  }
-  const treeFiles = all.filter(f => /\/(local_[^/]+)\/\.claude\/.+\.jsonl$/.test(f.webkitRelativePath));
+    return { path: file.webkitRelativePath, file, kind: 'audit', taskId, args: 'audit|' + taskId, metaPath: parts.slice(0, -2).join('/') + '/' + dirName + '.json' };
+  });
+  await mapLimit(auditItems, 8, async item => {
+    const mf = metaByPath.get(item.metaPath);
+    if (!mf) return;
+    try {
+      const meta = JSON.parse(await mf.text());
+      if (meta.title) src.titles.set(item.taskId, meta.title);
+    } catch {}
+  });
+
   const agentMetaByPath = new Map(all.filter(f => f.webkitRelativePath.endsWith('.meta.json')).map(f => [f.webkitRelativePath, f]));
-  for (const tf of treeFiles) {
-    const path = tf.webkitRelativePath;
+  const treeFiles = all.filter(f => /\/(local_[^/]+)\/\.claude\/.+\.jsonl$/.test(f.webkitRelativePath));
+  const treeItems = await mapLimit(treeFiles, 8, async file => {
+    const path = file.webkitRelativePath;
     const taskId = path.match(/\/(local_[^/]+)\/\.claude\//)[1].replace(/^local_/, '');
     let agentType = 'main';
     if (path.includes('/subagents/')) {
-      const mf = agentMetaByPath.get(path.replace(/\.jsonl$/, '.meta.json'));
       agentType = 'agent';
+      const mf = agentMetaByPath.get(path.replace(/\.jsonl$/, '.meta.json'));
       if (mf) { try { agentType = JSON.parse(await mf.text()).agentType || 'agent'; } catch {} }
     }
-    const records = parseJsonlLines(await tf.text());
-    for (const e of parseEntries(records, agentType)) {
-      e.sessionId = taskId;
-      e.sessionKind = 'cowork';
-      e.entrypoint = 'claude-desktop';
-      src.entries.push(e);
-    }
-    for (const d of parseDurations(records)) {
-      d.sessionId = taskId;
-      src.durations.push(d);
-    }
+    return { path, file, kind: 'tree', taskId, agentType, args: 'tree|' + taskId + '|' + agentType };
+  });
+
+  const { results } = await readLogFiles('cowork-files', [...auditItems, ...treeItems], parseCoworkFile, { onProgress });
+  for (const r of results) {
+    for (const e of r.entries) src.entries.push(e);
+    for (const d of r.durations) src.durations.push(d);
   }
+  const tasks = auditItems.length;
   if (tasks > 0 || src.entries.length > 0) state.srcCowork = src;
   return { tasks, entries: src.entries.length };
 }
@@ -166,7 +180,9 @@ export async function loadAndRender(dirHandle) {
   hideError();
   showLoading('Scanning files…');
   try {
-    await loadCodeData(dirHandle);
+    await loadCodeData(dirHandle, (done, total) => {
+      if (done === total || done % 25 === 0) setLoadingText(`Reading logs… ${fmtInt(done)} / ${fmtInt(total)} files`);
+    });
     await presentDashboard(true);
   } catch (e) {
     hideLoading();

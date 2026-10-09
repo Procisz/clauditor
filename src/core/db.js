@@ -1,9 +1,14 @@
-const DB_NAME = 'clauditor', DB_STORE = 'handles', DB_KEY = 'root';
+const DB_NAME = 'clauditor', DB_VERSION = 2, DB_STORE = 'handles', DB_KEY = 'root';
+export const LOG_STORE = 'logs';
 
 export function openDB() {
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(DB_STORE);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      if (!db.objectStoreNames.contains(LOG_STORE)) db.createObjectStore(LOG_STORE);
+    };
     req.onsuccess = e => res(e.target.result);
     req.onerror   = e => rej(e.target.error);
   });

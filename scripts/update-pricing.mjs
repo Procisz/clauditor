@@ -225,6 +225,17 @@ export function mergePriceList(list, rows, today) {
   return { list: next, changes };
 }
 
+export function detectIndent(text) {
+  const line = text.split('\n').find((l, i) => i > 0 && /^\s+\S/.test(l)) || '';
+  if (line.startsWith('\t')) return '\t';
+  const spaces = /^ +/.exec(line);
+  return spaces ? spaces[0] : '  ';
+}
+
+export function serializePriceList(list, indent) {
+  return JSON.stringify(list, null, indent) + '\n';
+}
+
 async function fetchPricingPage() {
   const res = await fetch(SOURCE, { signal: AbortSignal.timeout(30_000), headers: { accept: 'text/markdown, text/plain' } });
   if (!res.ok) throw new PricingError(`pricing page returned HTTP ${res.status}`);
@@ -240,7 +251,8 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10);
   const { rows, skipped } = parsePricingTable(await fetchPricingPage());
   const warnings = validateRows(rows);
-  const current = JSON.parse(readFileSync(PRICE_FILE, 'utf8'));
+  const currentText = readFileSync(PRICE_FILE, 'utf8');
+  const current = JSON.parse(currentText);
   const { list, changes } = mergePriceList(current, rows, today);
 
   const summary = [`## Claude pricing check (${today})`, '', `Parsed ${rows.length} models from ${SOURCE}.`];
@@ -250,7 +262,7 @@ async function main() {
   report(summary);
 
   if (!changes.length) return;
-  writeFileSync(PRICE_FILE, JSON.stringify(list, null, 2) + '\n');
+  writeFileSync(PRICE_FILE, serializePriceList(list, detectIndent(currentText)));
   if (process.env.RUNNER_TEMP) {
     const message = [`Update Claude pricing (${today})`, '', ...changes.map(c => `- ${c}`)].join('\n') + '\n';
     writeFileSync(join(process.env.RUNNER_TEMP, 'pricing-commit-message.txt'), message);

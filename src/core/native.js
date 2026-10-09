@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, parseJsonlLines } from './parser.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, parseLogLines } from './parser.js';
 
 export function hasNativeBridge() {
   return typeof window !== 'undefined' && !!window.clauditorFS;
@@ -31,7 +31,7 @@ export async function nativeInit() {
         agentType = meta.agentType || 'agent';
       } catch { agentType = 'agent'; }
     }
-    const records = parseJsonlLines(await fsx.read(p));
+    const records = parseLogLines(await fsx.read(p));
     code.entries.push(...parseEntries(records, agentType));
     code.durations.push(...parseDurations(records));
     for (const [sid, t] of parseSessionTitles(records)) { code.titles.set(sid, t); code.liveSids.add(sid); }
@@ -45,7 +45,7 @@ export async function nativeInit() {
       coworkTasks++;
       const dirName = dir.split('/').pop();
       const taskId = dirName.replace(/^local_/, '');
-      cw.entries.push(...parseCoworkEntries(parseJsonlLines(await fsx.read(p)), taskId));
+      cw.entries.push(...parseCoworkEntries(parseLogLines(await fsx.read(p)), taskId));
       try {
         const parent = dir.slice(0, dir.length - dirName.length - 1);
         const meta = JSON.parse(await fsx.read(parent + '/' + dirName + '.json'));
@@ -63,7 +63,7 @@ export async function nativeInit() {
         agentType = (meta && meta.agentType) || 'agent';
       } catch { agentType = 'agent'; }
     }
-    const records = parseJsonlLines(await fsx.read(p));
+    const records = parseLogLines(await fsx.read(p));
     for (const e of parseEntries(records, agentType)) {
       e.sessionId = taskId;
       e.sessionKind = 'cowork';
