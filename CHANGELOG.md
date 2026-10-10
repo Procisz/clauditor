@@ -5,7 +5,7 @@ All notable changes to Clauditor are documented here.
 ## [Unreleased]
 
 ### 💰 Pricing
-- **Prices update themselves.** A daily GitHub workflow reads Anthropic's official pricing page and commits `src/core/pricing.json` when a price changes or a model appears; no third-party data source. Pull and rebuild to pick up new prices; Settings shows the price list date
+- **Prices update themselves.** A daily GitHub workflow (00:17 Budapest time) reads Anthropic's official pricing page and commits `src/core/pricing.json` when a price changes or a model appears; no third-party data source. Pull and rebuild to pick up new prices; Settings shows the price list date
 - **Prices are tracked over time.** Each model keeps a dated rate history and every request is priced at the rate in force when it ran, so a later price change never rewrites past costs
 - The updater keeps `pricing.json`'s own indentation (tabs after a Prettier save, or spaces), so an automatic commit shows only the price change instead of reformatting the whole file
 - **How to add** button on the unpriced-model banner: opens a guide with a ready-to-paste, one-property-per-line `pricing.json` entry for each flagged model (key derived from its id, rates prefilled from the current estimate, shown in place with a copy button), the `aliases` form for ids without a model name, and the mapping from each field to the column on Anthropic's pricing page
