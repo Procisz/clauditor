@@ -1,6 +1,6 @@
 {
 	"source": "https://platform.claude.com/docs/en/about-claude/pricing.md",
-	"updatedAt": "2026-10-09",
+	"updatedAt": "2026-10-10",
 	"models": {
 		"fable-5-1": {
 			"name": "Claude Fable 5.1",
@@ -299,6 +299,19 @@
 							"cacheRead": 0.05
 						}
 					]
+				}
+			]
+		},
+		"opus-5-5": {
+			"name": "Claude Opus 5.5",
+			"history": [
+				{
+					"from": "2026-10-10",
+					"input": 4,
+					"output": 20,
+					"cacheWrite5m": 5,
+					"cacheWrite1h": 8,
+					"cacheRead": 0.2
 				}
 			]
 		}
