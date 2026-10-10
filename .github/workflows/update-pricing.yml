@@ -2,7 +2,8 @@ name: Update Claude pricing
 
 on:
   schedule:
-    - cron: '37 6 * * *'
+    - cron: '17 0 * * *'
+      timezone: 'Europe/Budapest'
   workflow_dispatch:
 
 permissions:
