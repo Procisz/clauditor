@@ -301,19 +301,6 @@
 					]
 				}
 			]
-		},
-		"opus-5-5": {
-			"name": "Claude Opus 5.5",
-			"history": [
-				{
-					"from": "2026-10-09",
-					"input": 4,
-					"output": 20,
-					"cacheWrite5m": 5,
-					"cacheWrite1h": 8,
-					"cacheRead": 0.2
-				}
-			]
 		}
 	}
 }
