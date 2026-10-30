@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '../../../src/core/state.js';
 import { fmtMoney, fmtFixed } from '../../../src/core/utils.js';
 import { PRICE_LIST_UPDATED } from '../../../src/core/config.js';
@@ -349,6 +349,50 @@ describe('appearance', () => {
   it('keeps the appearance tab open after a pick', () => {
     pick('mode:dark');
     expect(panel('appearance').hidden).toBe(false);
+  });
+
+  it('lists the section titles in order with Width first', () => {
+    const titles = [...panel('appearance').querySelectorAll('.modal-section-title')].map((h) => h.textContent);
+    expect(titles).toEqual(['Width', 'Light or dark', 'Light themes', 'Dark themes']);
+  });
+
+  it('holds the four width chips and no note in the first section', () => {
+    const first = panel('appearance').querySelector('.modal-section');
+    expect(first.querySelectorAll('[data-pick^="width:"]')).toHaveLength(4);
+    expect(first.querySelector('.set-note')).toBeNull();
+  });
+
+  it('removes the English width hint from the appearance panel', () => {
+    expect(panel('appearance').textContent).not.toContain('How wide the pages get');
+  });
+
+  it('keeps the width chips working after the section moved to the top', () => {
+    pick('width:full');
+    expect(localStorage.getItem('clauditor_width')).toBe('full');
+    expect(body().querySelector('[data-pick="width:full"]').getAttribute('aria-pressed')).toBe('true');
+    expect(body().querySelector('[data-pick="width:normal"]').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  describe('in Hungarian', () => {
+    beforeEach(() => {
+      click(tabButton('general'));
+      pick('lang:hu');
+      click(tabButton('appearance'));
+    });
+
+    afterEach(() => {
+      click(tabButton('general'));
+      pick('lang:en');
+    });
+
+    it('lists the Hungarian section titles in order with Width first', () => {
+      const titles = [...panel('appearance').querySelectorAll('.modal-section-title')].map((h) => h.textContent);
+      expect(titles).toEqual(['Szélesség', 'Világos vagy sötét', 'Világos témák', 'Sötét témák']);
+    });
+
+    it('removes the Hungarian width hint from the appearance panel', () => {
+      expect(panel('appearance').textContent).not.toContain('Milyen szélesek az oldalak');
+    });
   });
 });
 

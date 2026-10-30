@@ -137,15 +137,6 @@ describe('nav labels and language', () => {
     boot();
     setLang('hu');
     expect(IDS.map((id) => tab(id).textContent)).toEqual(['Áttekintés', 'Ma', 'Modellek', 'Projektek', 'Munkamenetek', 'Költségek']);
-    expect(document.querySelector('#lang-switch [data-lang="hu"]').getAttribute('aria-pressed')).toBe('true');
-    expect(document.querySelector('#lang-switch [data-lang="en"]').getAttribute('aria-pressed')).toBe('false');
-  });
-
-  it('switches the language from the header buttons', () => {
-    boot();
-    click(document.querySelector('#lang-switch [data-lang="hu"]'));
-    expect(localStorage.getItem('clauditor_lang')).toBe('hu');
-    expect(tab('models').textContent).toBe('Modellek');
   });
 
   it('re-renders the active page in the new language', () => {

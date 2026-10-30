@@ -5,12 +5,12 @@ All notable changes to Clauditor are documented here.
 ## [Unreleased]
 
 ### 🎨 Redesign
-- **New app shell.** A header with page tabs, a global period bar (From, To, Day/Week/Month, Export CSV), a language switch, a theme toggle and a tabbed settings dialog. Tailwind and DaisyUI are gone; the interface uses plain CSS with design tokens
+- **New app shell.** A header with page tabs, a global period bar (From, To, Day/Week/Month, Export CSV) and a tabbed settings dialog. Tailwind and DaisyUI are gone; the interface uses plain CSS with design tokens
 - **Six pages with their own addresses**: Overview (`#overview`), Today (`#today`), Models (`#models`), Projects (`#projects`), Sessions (`#sessions`) and Costs (`#costs`). Only the open page is drawn, so large logs stay fast
 - **Comparisons with the previous period.** Overview cards, the cost trend and the token trend show the change against the same number of days right before the selected range; Today compares with the previous day
 - **New charts**: hour by weekday heatmap, cost by model over time, top projects, cost share and token mix by model, effort level by model, project treemap, cost against sessions, models per project, session length and cost per session distributions, cost by agent type, subagent share of cost, sessions by source, cumulative cost against the previous day, cache hit rate and savings, average cost by weekday, cost by token type over time
 - **Budget tracking and forecast.** Spend against the monthly budget, a budget gauge and a month-end forecast on Costs, and a budget strip on Overview; the budget is set in Settings (0 turns it off)
-- **English and Hungarian interface** with a language switch in the header; English is the default and the choice is saved (`clauditor_lang`)
+- **English and Hungarian interface**, chosen in Settings, General; English is the default and the choice is saved (`clauditor_lang`)
 - **Ten themes**: light Winter (default), Sand, Mint, Lavender, Sea; dark Dracula (default), Midnight, Forest, Graphite, Plum. Settings, Appearance picks Light, Dark or Automatic and one theme per side. `clauditor_theme` now stores `light`, `dark` or `auto`; the old `winter` and `dracula` values still load
 - **Settings tabs**: General, Numbers, Appearance, Data. Table page sizes are remembered (`clauditor_table_rows`)
 - **Tests.** `npm test` runs a vitest and jsdom suite covering i18n, metrics, routing, themes, settings, tables, legends, charts and pages
@@ -19,7 +19,7 @@ All notable changes to Clauditor are documented here.
 ### 🏷️ Sessions and layout
 - **Better session names.** Claude's automatic session titles (`ai-title`) are read too, not only the ones you set; a session with no title shows the start of its first prompt (up to 80 characters)
 - **One-line table cells.** Long names end in "..." with the full text on hover, and a table wider than the screen scrolls sideways inside its card
-- **Width setting.** Settings, Appearance: Narrow, Normal, Wide or Full (`clauditor_width`). The default is Normal, the same width as before
+- **Width setting.** Settings, Appearance, first section: Narrow, Normal, Wide or Full (`clauditor_width`). The default is Normal, the same width as before
 
 ### 💰 Pricing
 - **Prices update themselves.** A weekly GitHub workflow (Mondays 00:17 Budapest time) reads Anthropic's official pricing page and commits `src/core/pricing.json` when a price changes or a model appears; no third-party data source. Pull and rebuild to pick up new prices; Settings shows the price list date

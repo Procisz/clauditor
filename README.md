@@ -58,9 +58,9 @@ The header holds six page tabs. Each page has its own address (`#overview`, `#to
 
 Every table opens sorted by final cost, most expensive first. Table cells stay on one line, so a long name ends in "..." (hover it for the full text), and a table wider than the screen scrolls sideways inside its card.
 
-**Language.** The EN and HU buttons in the header switch the interface between English (the default) and Hungarian. The choice is saved. Page addresses stay English in both languages.
+**Language.** Settings, General switches the interface between English (the default) and Hungarian. The choice is saved. Page addresses stay English in both languages.
 
-**Themes.** The sun/moon button flips between light and dark. Settings, Appearance, offers Light, Dark or Automatic (follows the system) and a theme per side. Light: Winter (default), Sand, Mint, Lavender, Sea. Dark: Dracula (default), Midnight, Forest, Graphite, Plum.
+**Themes.** Settings, Appearance offers Light, Dark or Automatic (follows the system) and a theme per side. Light: Winter (default), Sand, Mint, Lavender, Sea. Dark: Dracula (default), Midnight, Forest, Graphite, Plum.
 
 **Settings.** The gear opens a dialog with four tabs:
 

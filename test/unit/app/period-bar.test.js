@@ -328,3 +328,20 @@ describe('period row placement', () => {
     expect(bar().contains(document.getElementById('period-caption'))).toBe(true);
   });
 });
+
+describe('header controls', () => {
+  it('has no language switch or theme button in the header', () => {
+    boot();
+    expect(document.getElementById('lang-switch')).toBeNull();
+    expect(document.getElementById('btn-theme')).toBeNull();
+    expect(document.querySelector('.app-header [data-lang]')).toBeNull();
+  });
+
+  it('keeps the data sources, settings, refresh and filter buttons in the header', () => {
+    boot();
+    const header = document.querySelector('.app-header');
+    for (const id of ['btn-select', 'btn-settings', 'btn-refresh', 'filter-toggle']) {
+      expect(header.querySelector(`#${id}`), id).not.toBeNull();
+    }
+  });
+});

@@ -109,7 +109,7 @@ function widthSection() {
   const active = currentWidth();
   return modalSection(t('settings.width'), `<div class="chip-row">${WIDTHS.map((id) =>
     `<button type="button" class="chip" data-pick="width:${id}" aria-pressed="${id === active}"><span>${esc(t(`settings.width.${id}`))}</span></button>`,
-  ).join('')}</div>${note(t('settings.widthNote'))}`);
+  ).join('')}</div>`);
 }
 
 function appearancePanel() {
@@ -119,10 +119,10 @@ function appearancePanel() {
   ).join('')}</div>${note(t('settings.modeNote'))}`;
   const light = currentLight();
   const dark = currentDark();
-  return `${modalSection(t('settings.mode'), modes)}
+  return `${widthSection()}
+    ${modalSection(t('settings.mode'), modes)}
     ${modalSection(t('settings.lightThemes'), `<div class="set-grid">${LIGHT_THEMES.map((th) => themeCard('light', th, light)).join('')}</div>`)}
-    ${modalSection(t('settings.darkThemes'), `<div class="set-grid">${DARK_THEMES.map((th) => themeCard('dark', th, dark)).join('')}</div>`)}
-    ${widthSection()}`;
+    ${modalSection(t('settings.darkThemes'), `<div class="set-grid">${DARK_THEMES.map((th) => themeCard('dark', th, dark)).join('')}</div>`)}`;
 }
 
 function formatLastUpdated() {

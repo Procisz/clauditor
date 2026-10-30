@@ -167,7 +167,7 @@ Pages are addressed by hash only (the Electron build loads over `file://`): `#ov
 
 A page module `src/pages/<id>/index.js` default-exports `{ id, titleKey, icon, usesRange, render(mount, ctx) }`. `ctx` holds `entries` (the period), `allEntries`, `durations`, `range` (`from`, `to`, `view`), `previous` (the same number of days right before the range: `from`, `to`, `entries`), `markup`, `budget`, `today`, `rerender()` and `openSession(sessionId)`. The shell destroys the charts inside `mount` before each render.
 
-The shell re-renders the active page on three events from [events.js](src/app/events.js): `clauditor:themechange`, `clauditor:langchange` and `clauditor:rerender`.
+The shell re-renders the active page on two events from [events.js](src/app/events.js): `clauditor:langchange` and `clauditor:rerender`. A theme change (`clauditor:themechange`) re-renders nothing: the charts, ramps and legends (src/ui/charts.js, ramp.js, legend.js) recolour themselves, and everything else follows the CSS theme tokens.
 
 ### Internationalisation
 

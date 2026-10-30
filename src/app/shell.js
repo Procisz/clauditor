@@ -5,9 +5,8 @@ import { activeQuickId, quickPeriods } from '../core/periods.js';
 import { inRange, previousRange } from '../core/metrics.js';
 import { currentScreen, setScreenListener } from '../core/utils.js';
 import { refreshData, showSources } from '../core/folder.js';
-import { applyStaticTexts, getLang, getLocale, setLang, t } from '../i18n/index.js';
+import { applyStaticTexts, getLocale, t } from '../i18n/index.js';
 import { EVENTS } from './events.js';
-import { isDark, setMode } from './appearance.js';
 import { activate, buildNav, currentPage, initRouter, onActivate, pageFromLocation, panelOf, registerPage, relabelNav } from './router.js';
 import { exportCsv } from './export.js';
 import { openSettings } from './settings.js';
@@ -202,22 +201,6 @@ function syncViewToggle() {
   }
 }
 
-function syncLangSwitch() {
-  for (const btn of document.querySelectorAll('#lang-switch [data-lang]')) {
-    btn.setAttribute('aria-pressed', String(btn.dataset.lang === getLang()));
-  }
-}
-
-function syncThemeButton() {
-  const btn = byId('btn-theme');
-  if (!btn) return;
-  const dark = isDark();
-  const label = t(dark ? 'shell.toLight' : 'shell.toDark');
-  btn.innerHTML = icon(dark ? 'i-sun' : 'i-moon');
-  btn.setAttribute('aria-label', label);
-  btn.title = label;
-}
-
 function refresh() {
   markAllDirty();
   renderActive();
@@ -248,16 +231,9 @@ function onViewClick(e) {
   refresh();
 }
 
-function onLangClick(e) {
-  const btn = e.target.closest('[data-lang]');
-  if (btn) setLang(btn.dataset.lang);
-}
-
 function onLangChange() {
   applyStaticTexts(document);
   relabelNav();
-  syncLangSwitch();
-  syncThemeButton();
   syncFilterToggle();
   refresh();
 }
@@ -293,18 +269,13 @@ export function initShell(pages) {
     ...on('period-quicks', 'click', onQuickClick),
     ...on('filter-toggle', 'click', onFilterToggle),
     ...on('view-toggle', 'click', onViewClick),
-    ...on('lang-switch', 'click', onLangClick),
     ...on('btn-export', 'click', exportCsv),
     ...on('btn-refresh', 'click', refreshData),
     ...on('btn-select', 'click', showSources),
     ...on('btn-settings', 'click', openSettings),
-    ...on('btn-theme', 'click', () => setMode(isDark() ? 'light' : 'dark')),
     [document, EVENTS.lang, onLangChange],
-    [document, EVENTS.theme, syncThemeButton],
     [document, EVENTS.rerender, refresh],
   ]);
-  syncLangSwitch();
-  syncThemeButton();
   syncFilterToggle();
   syncViewToggle();
   activate(pageFromLocation());
