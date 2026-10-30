@@ -1,11 +1,12 @@
 import { collectJsonlFiles } from './fs.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, entryKey } from './parser.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseAiTitles, parseFirstPrompts, resolveSessionTitles, parseCoworkEntries, entryKey } from './parser.js';
 import { readLogFiles, mapLimit } from './logcache.js';
 import { state } from './state.js';
 import { showLoading, hideLoading, setLoadingText, showDashboard, showError, hideError, updatePricingWarning, updateCoworkWarning, fmtInt } from './utils.js';
 import { getArchiveHandle, readArchive, writeArchive } from './archive.js';
 import { todayKey } from './dates.js';
 import { getUnknownModels } from './config.js';
+import { t } from '../i18n/index.js';
 
 let _renderCallback = null;
 export function setRenderCallback(fn) { _renderCallback = fn; }
@@ -15,13 +16,15 @@ async function archiveBase() {
   const dateFrom = localStorage.getItem('clauditor_date_from') || '';
   const fromMonth = dateFrom ? dateFrom.slice(0, 7) : '';
   const { entries, durations, titles } = await readArchive(archiveHandle, fromMonth);
-  return { entries: [...entries], durations: [...durations], titles: new Map(titles), liveSids: new Set() };
+  return { entries: [...entries], durations: [...durations], titles: new Map(), aiTitles: new Map(), prompts: new Map(), archivedTitles: new Map(titles), liveSids: new Set() };
 }
 
 const parseCodeFile = (records, item) => ({
   entries: parseEntries(records, item.args),
   durations: parseDurations(records),
   titles: [...parseSessionTitles(records)],
+  aiTitles: [...parseAiTitles(records)],
+  prompts: [...parseFirstPrompts(records)],
 });
 
 function addCodeResults(src, results) {
@@ -29,6 +32,8 @@ function addCodeResults(src, results) {
     for (const e of r.entries) src.entries.push(e);
     for (const d of r.durations) src.durations.push(d);
     for (const [sid, t] of r.titles) { src.titles.set(sid, t); src.liveSids.add(sid); }
+    for (const [sid, t] of r.aiTitles) src.aiTitles.set(sid, t);
+    for (const [sid, t] of r.prompts) if (!src.prompts.has(sid)) src.prompts.set(sid, t);
   }
 }
 
@@ -69,11 +74,13 @@ export async function loadCodeDataFromFiles(all, onProgress) {
 }
 
 const parseCoworkFile = (records, item) => item.kind === 'audit'
-  ? { entries: parseCoworkEntries(records, item.taskId), durations: [], titles: [] }
+  ? { entries: parseCoworkEntries(records, item.taskId), durations: [], titles: [], aiTitles: [], prompts: [] }
   : {
       entries: parseEntries(records, item.agentType).map(e => ({ ...e, sessionId: item.taskId, sessionKind: 'cowork', entrypoint: 'claude-desktop' })),
       durations: parseDurations(records).map(d => ({ ...d, sessionId: item.taskId })),
       titles: [],
+      aiTitles: [],
+      prompts: [],
     };
 
 export async function loadCoworkData(fileList, onProgress) {
@@ -124,10 +131,9 @@ export function assembleState() {
   const code = state.srcCode, cw = state.srcCowork;
   state.allEntries   = [...(code ? code.entries : []), ...(cw ? cw.entries : [])];
   state.allDurations = [...(code ? code.durations : []), ...(cw && cw.durations ? cw.durations : [])];
-  const titles = new Map(code ? code.titles : []);
+  const titles = resolveSessionTitles(code ?? {});
   if (cw) for (const [sid, t] of cw.titles) titles.set(sid, t);
   state.sessionTitles = titles;
-  state.liveTitleSids = new Set([...(code ? code.liveSids : []), ...(cw ? cw.titles.keys() : [])]);
 }
 
 export async function presentDashboard(showRefresh = state.srcCodeFromHandle) {
@@ -160,8 +166,8 @@ function finishLoading(showRefresh) {
   state.autoDateFrom = earliest;
   document.getElementById('date-from').value = localStorage.getItem('clauditor_date_from') || earliest;
   document.getElementById('date-to').value = todayStr;
-  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
-  document.getElementById('btn-refresh').style.display = showRefresh ? '' : 'none';
+  state.lastUpdated = new Date();
+  document.getElementById('btn-refresh').hidden = !showRefresh;
 
   hideLoading();
   showDashboard();
@@ -170,7 +176,7 @@ function finishLoading(showRefresh) {
       _renderCallback?.();
       window.dispatchEvent(new Event('resize'));
     } catch (e) {
-      showError('Render error: ' + e.message);
+      showError(t('shell.renderError', { message: e.message }));
       console.error(e);
     }
   }, 100);
@@ -178,22 +184,22 @@ function finishLoading(showRefresh) {
 
 export async function loadAndRender(dirHandle) {
   hideError();
-  showLoading('Scanning files…');
+  showLoading(t('shell.scanning'));
   try {
     await loadCodeData(dirHandle, (done, total) => {
-      if (done === total || done % 25 === 0) setLoadingText(`Reading logs… ${fmtInt(done)} / ${fmtInt(total)} files`);
+      if (done === total || done % 25 === 0) setLoadingText(t('shell.readingLogs', { done: fmtInt(done), total: fmtInt(total) }));
     });
     await presentDashboard(true);
   } catch (e) {
     hideLoading();
-    showError('Failed to read data: ' + e.message);
+    showError(t('shell.loadFailed', { message: e.message }));
     console.error(e);
   }
 }
 
 export async function loadFromFileInput(fileList) {
   hideError();
-  showLoading('Scanning files…');
+  showLoading(t('shell.scanning'));
   try {
     const all = Array.from(fileList);
     await loadCodeDataFromFiles(all);
@@ -201,7 +207,7 @@ export async function loadFromFileInput(fileList) {
     await presentDashboard(false);
   } catch (e) {
     hideLoading();
-    showError('Failed to read data: ' + e.message);
+    showError(t('shell.loadFailed', { message: e.message }));
     console.error(e);
   }
 }

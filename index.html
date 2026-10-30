@@ -3,13 +3,36 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Claude Usage Dashboard</title>
+		<title>Clauditor</title>
 		<script>
-			try {
-				var t = localStorage.getItem("clauditor_theme");
-				document.documentElement.dataset.theme =
-					t === "dracula" ? "dracula" : "winter";
-			} catch (e) {}
+			(function () {
+				var d = document.documentElement.dataset;
+				var get = function (k) {
+					try {
+						return localStorage.getItem(k);
+					} catch (e) {
+						return null;
+					}
+				};
+				var LIGHT = ["winter", "sand", "mint", "lavender", "sea"];
+				var DARK = ["dracula", "midnight", "forest", "graphite", "plum"];
+				var mode = get("clauditor_theme");
+				if (mode === "winter") mode = "light";
+				else if (mode === "dracula") mode = "dark";
+				if (mode !== "light" && mode !== "dark" && mode !== "auto") mode = "light";
+				var dark = mode === "auto" ? matchMedia("(prefers-color-scheme: dark)").matches : mode === "dark";
+				d.theme = dark ? "dark" : "light";
+				if (mode === "auto") d.themeAuto = "1";
+				var light = get("clauditor_theme_light");
+				var night = get("clauditor_theme_dark");
+				d.light = LIGHT.indexOf(light) === -1 ? "winter" : light;
+				d.dark = DARK.indexOf(night) === -1 ? "dracula" : night;
+				var WIDTHS = ["narrow", "normal", "wide", "full"];
+				var width = get("clauditor_width");
+				d.width = WIDTHS.indexOf(width) === -1 ? "normal" : width;
+				var lang = get("clauditor_lang");
+				if (lang === "en" || lang === "hu") document.documentElement.lang = lang;
+			})();
 		</script>
 		<link
 			rel="icon"
@@ -17,125 +40,63 @@
 			href="data:image/png;base64,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"
 		/>
 	</head>
-	<body class="min-h-screen bg-base-200">
+	<body>
 		<%- include('src/html/partials/header.html') %>
 
-		<main class="max-w-screen-xl mx-auto px-4 py-4">
+		<main class="app-main">
 			<input
 				type="file"
 				id="file-input-fallback"
 				webkitdirectory
-				style="display: none"
+				hidden
 				onchange="onCodeFilesPicked(this.files)"
 			/>
-			<div
-				id="error-banner"
-				class="alert alert-error mb-4"
-				style="display: none"
-			></div>
-			<div
-				id="pricing-warning"
-				class="alert alert-warning mb-4"
-				style="display: none"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					aria-hidden="true"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-					/>
-				</svg>
-				<span id="pricing-warning-text"></span>
-				<button class="btn btn-xs shrink-0 ml-auto" onclick="openPricingHelp()">
-					How to add
-				</button>
-				<button
-					id="pricing-warning-close"
-					class="btn btn-ghost btn-xs btn-circle shrink-0"
-					aria-label="Dismiss pricing warning"
-					title="Dismiss: hides this warning for one month"
-				>
-					✕
-				</button>
+			<div id="error-banner" class="banner" data-tone="error" role="alert" hidden>
+				<svg class="icon" aria-hidden="true"><use href="#i-warn" /></svg>
+				<span class="banner-text"></span>
 			</div>
-			<div
-				id="cowork-warning"
-				class="alert alert-warning mb-4"
-				style="display: none"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					aria-hidden="true"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-					/>
-				</svg>
-				<span
-					>Cowork tasks are not included — no Cowork data source is loaded, so
-					the numbers cover Claude Code sessions only.</span
-				>
-				<button class="btn btn-xs shrink-0 ml-auto" onclick="showSources()">
-					Data Sources
-				</button>
-				<button
-					id="cowork-warning-close"
-					class="btn btn-ghost btn-xs btn-circle shrink-0"
-					aria-label="Dismiss Cowork warning"
-					title="Dismiss — reappears next time the dashboard loads without Cowork data"
-				>
-					✕
-				</button>
+			<div id="pricing-warning" class="banner" data-tone="warn" hidden>
+				<svg class="icon" aria-hidden="true"><use href="#i-warn" /></svg>
+				<span class="banner-text" id="pricing-warning-text"></span>
+				<div class="banner-actions">
+					<button type="button" class="btn" onclick="openPricingHelp()" data-i18n="shell.howToAdd"></button>
+					<button
+						type="button"
+						class="note-close"
+						id="pricing-warning-close"
+						data-i18n-attr="aria-label:shell.dismissPricing;title:shell.dismissPricingTip"
+					>
+						<svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+					</button>
+				</div>
+			</div>
+			<div id="cowork-warning" class="banner" data-tone="warn" hidden>
+				<svg class="icon" aria-hidden="true"><use href="#i-warn" /></svg>
+				<span class="banner-text" data-i18n="shell.coworkWarning"></span>
+				<div class="banner-actions">
+					<button type="button" class="btn" onclick="showSources()" data-i18n="shell.dataSources"></button>
+					<button
+						type="button"
+						class="note-close"
+						id="cowork-warning-close"
+						data-i18n-attr="aria-label:shell.dismissCowork;title:shell.dismissCoworkTip"
+					>
+						<svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+					</button>
+				</div>
 			</div>
 
 			<%- include('src/html/partials/welcome.html') %>
 
-						<div
-				id="loading"
-				class="flex flex-col items-center justify-center gap-4"
-				style="display: none"
-			>
-				<span class="loading loading-spinner loading-lg text-primary"></span>
-				<p id="loading-text" class="text-sm opacity-60">Reading files…</p>
+			<div id="loading" class="loading-state" role="status" hidden>
+				<span class="spinner" aria-hidden="true"></span>
+				<p id="loading-text"></p>
 			</div>
 
-						<div id="dashboard" style="display: none">
-								<div class="bg-base-100 border border-base-300 rounded-box mb-5">
-					<div class="join w-full">
-						<button
-							class="btn join-item flex-1 btn-primary p-6"
-							data-tab="overview"
-							onclick="switchTab('overview')"
-						>
-							Overview
-						</button>
-						<button
-							class="btn join-item flex-1 btn-ghost p-6"
-							data-tab="today"
-							onclick="switchTab('today')"
-						>
-							Today
-						</button>
-					</div>
-				</div>
-
-				<%- include('src/html/partials/overview.html') %> <%-
-				include('src/html/partials/today.html') %>
+			<div id="dashboard" hidden>
+				<div id="app-main"></div>
 			</div>
-					</main>
+		</main>
 
 		<script type="module" src="/src/main.js"></script>
 	</body>

@@ -1,5 +1,5 @@
 import { readLogFiles, memoryLogStore, recordsFromBytes } from '../src/core/logcache.js';
-import { parseLogLines, parseEntries, parseDurations, parseSessionTitles } from '../src/core/parser.js';
+import { parseLogLines, parseEntries, parseDurations, parseSessionTitles, parseAiTitles, parseFirstPrompts } from '../src/core/parser.js';
 
 let failures = 0;
 function check(label, ok, detail = '') {
@@ -18,10 +18,12 @@ const assistant = (id, out, ts = '2026-10-01T10:00:00.000Z') => JSON.stringify({
 const userLine = big => JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'x'.repeat(big) }] } });
 const duration = ms => JSON.stringify({ type: 'system', subtype: 'turn_duration', timestamp: '2026-10-01T10:00:00.000Z', sessionId: 's1', durationMs: ms });
 const title = t => JSON.stringify({ type: 'custom-title', sessionId: 's1', customTitle: t });
+const aiTitle = t => JSON.stringify({ type: 'ai-title', sessionId: 's1', aiTitle: t });
+const prompt = t => JSON.stringify({ type: 'last-prompt', sessionId: 's1', lastPrompt: t });
 
-const parse = (records, item) => ({ entries: parseEntries(records, item.args), durations: parseDurations(records), titles: [...parseSessionTitles(records)] });
+const parse = (records, item) => ({ entries: parseEntries(records, item.args), durations: parseDurations(records), titles: [...parseSessionTitles(records)], aiTitles: [...parseAiTitles(records)], prompts: [...parseFirstPrompts(records)] });
 const reference = text => parse(parseLogLines(text), { args: 'main' });
-const sig = d => JSON.stringify({ e: d.entries.map(e => [e.msgId, e.output]), d: d.durations.map(x => x.durationMs), t: d.titles });
+const sig = d => JSON.stringify({ e: d.entries.map(e => [e.msgId, e.output]), d: d.durations.map(x => x.durationMs), t: d.titles, a: d.aiTitles, p: d.prompts });
 const load = (store, files, opts = {}) => readLogFiles('test', files.map(([path, text, mtime]) => ({ path, file: fakeFile(text, mtime), args: 'main' })), parse, { store, timeZone: 'Europe/Budapest', ...opts });
 
 console.log('Line pre-filter:');
@@ -31,6 +33,12 @@ check('keeps usage, turn_duration and custom-title lines, skips the rest', recs.
 check('a user line that merely mentions usage is parsed, then ignored by the record parsers', parseEntries(parseLogLines(JSON.stringify({ type: 'user', text: '"usage"' })), 'main').length === 0);
 check('chunked byte decoding matches a plain parse, even with lines longer than a chunk',
   recordsFromBytes(enc.encode([assistant('a', 1), userLine(20 * 1024 * 1024), assistant('b', 2), ''].join('\n'))).map(r => r.message.id).join() === 'a,b');
+
+const withNames = [assistant('m1', 5), aiTitle('AI one'), prompt('first prompt'), userLine(1000), '{"type":"user","note":"no markers"}', title('First')].join('\n');
+const namedRecs = parseLogLines(withNames);
+check('the pre-filter keeps ai-title and last-prompt lines and still skips unmarked ones', namedRecs.length === 4 && namedRecs.map(r => r.type).join() === 'assistant,ai-title,last-prompt,custom-title');
+const namedParsed = reference(withNames);
+check('parse yields the ai title and the first prompt next to the custom title', namedParsed.aiTitles.join() === 's1,AI one' && namedParsed.prompts.join() === 's1,first prompt' && namedParsed.titles.join() === 's1,First');
 
 console.log('Incremental cache:');
 const store = memoryLogStore();
@@ -67,6 +75,20 @@ check('a file rewritten in place is re-read in full', sig(rw.results[0]) === sig
 const truncated = [assistant('t1', 1), ''].join('\n');
 const tr = await load(store, [['a.jsonl', truncated, 8000]]);
 check('a truncated file is re-read in full', sig(tr.results[0]) === sig(reference(truncated)) && tr.stats.full === 1);
+
+const nameStore = memoryLogStore();
+const n1 = [assistant('m1', 5), prompt('first prompt'), aiTitle('AI one'), ''].join('\n');
+await load(nameStore, [['n.jsonl', n1, 1000]]);
+const n2 = n1 + [assistant('m2', 6), prompt('later prompt'), aiTitle('AI two'), ''].join('\n');
+const namesGrown = await load(nameStore, [['n.jsonl', n2, 2000]]);
+check('across appends the first prompt survives and ai titles stay last-wins', namesGrown.stats.appended === 1
+  && namesGrown.results[0].prompts.join() === 's1,first prompt' && namesGrown.results[0].aiTitles.join() === 's1,AI two' && sig(namesGrown.results[0]) === sig(reference(n2)));
+const n3 = n2 + [prompt('third prompt'), ''].join('\n');
+const namesThird = await load(nameStore, [['n.jsonl', n3, 3000]]);
+check('a second append keeps the first prompt and the latest ai title', namesThird.results[0].prompts.join() === 's1,first prompt' && namesThird.results[0].aiTitles.join() === 's1,AI two');
+for (const record of nameStore.map.values()) record.v = 1;
+const stale = await load(nameStore, [['n.jsonl', n3, 3000]]);
+check('a cached record with an older version is re-read in full', stale.stats.full === 1 && stale.stats.unchanged === 0 && stale.stats.bytesRead > 0 && sig(stale.results[0]) === sig(reference(n3)));
 
 console.log('Invalidation and pruning:');
 const s2 = memoryLogStore();

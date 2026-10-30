@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { parseEntries, parseDurations, parseSessionTitles, parseCoworkEntries, parseLogLines } from './parser.js';
+import { parseEntries, parseDurations, parseSessionTitles, parseAiTitles, parseFirstPrompts, parseCoworkEntries, parseLogLines } from './parser.js';
 
 export function hasNativeBridge() {
   return typeof window !== 'undefined' && !!window.clauditorFS;
@@ -19,7 +19,7 @@ export async function nativeInit() {
   const fsx = window.clauditorFS;
   const { projects, cowork } = await fsx.paths();
 
-  const code = { entries: [], durations: [], titles: new Map(), liveSids: new Set() };
+  const code = { entries: [], durations: [], titles: new Map(), aiTitles: new Map(), prompts: new Map(), archivedTitles: new Map(), liveSids: new Set() };
   let codeFiles = 0;
   await walk(fsx, projects, async (p, name, dir) => {
     if (!name.endsWith('.jsonl') || name === 'audit.jsonl') return;
@@ -35,6 +35,8 @@ export async function nativeInit() {
     code.entries.push(...parseEntries(records, agentType));
     code.durations.push(...parseDurations(records));
     for (const [sid, t] of parseSessionTitles(records)) { code.titles.set(sid, t); code.liveSids.add(sid); }
+    for (const [sid, t] of parseAiTitles(records)) code.aiTitles.set(sid, t);
+    for (const [sid, t] of parseFirstPrompts(records)) if (!code.prompts.has(sid)) code.prompts.set(sid, t);
   });
 
   const cw = { entries: [], durations: [], titles: new Map() };

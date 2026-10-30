@@ -1,7 +1,7 @@
 {
 	"name": "clauditor",
 	"author": "Ágoston Zajkás",
-	"version": "2.1.9",
+	"version": "3.0.2",
 	"private": true,
 	"main": "electron/main.js",
 	"scripts": {
@@ -12,7 +12,8 @@
 		"electron:build": "npm run build && electron-builder",
 		"check:pricing": "node scripts/check-pricing.mjs",
 		"update:pricing": "node scripts/update-pricing.mjs",
-		"check:loader": "node scripts/check-loader.mjs"
+		"check:loader": "node scripts/check-loader.mjs",
+		"test": "vitest run"
 	},
 	"build": {
 		"appId": "com.clauditor.app",
@@ -39,17 +40,16 @@
 		}
 	},
 	"devDependencies": {
-		"electron": "^41.0.2",
+		"electron": "^45.1.0",
 		"electron-builder": "^26.8.1",
 		"html-minifier-terser": "^7.2.0",
+		"jsdom": "^30.1.3",
 		"vite": "^6.0.0",
 		"vite-plugin-html": "^3.2.2",
-		"vite-plugin-singlefile": "^2.0.0"
+		"vite-plugin-singlefile": "^2.0.0",
+		"vitest": "^5.0.5"
 	},
 	"dependencies": {
-		"@tailwindcss/vite": "^4.2.2",
-		"apexcharts": "^5.10.4",
-		"daisyui": "^5.5.19",
-		"tailwindcss": "^4.2.2"
+		"apexcharts": "^5.10.4"
 	}
 }

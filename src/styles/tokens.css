@@ -1,0 +1,97 @@
+:root {
+  --r-sm: .375rem;
+  --r-md: .625rem;
+  --r-lg: 1rem;
+  --r-pill: 999px;
+  --card-radius: var(--r-lg);
+  --control-radius: var(--r-md);
+  --chip-radius: var(--r-pill);
+  --border-w: 1px;
+  --card-accent-w: 3px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --card-pad-x: var(--space-5);
+  --card-pad-y: var(--space-4);
+  --grid-gap: var(--space-4);
+  --control-h: 34px;
+  --layout-max: 1280px;
+
+  --control-pad-x: 12px;
+  --tab-pad-x: 11px;
+  --tab-pad-y: 7px;
+  --cell-pad-x: 10px;
+  --cell-pad-y: 7px;
+  --header-pad-y: var(--space-2);
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-base: 15px;
+  --fs-card-title: .95rem;
+  --fs-stat-value: clamp(1.3rem, 2.2vw, 1.7rem);
+  --fs-table: 13.5px;
+  --fs-micro: 10.5px;
+  --fs-label: 11px;
+  --fs-caption: 11.5px;
+  --fs-note: 12px;
+  --fs-small: 12.5px;
+  --fs-body: 13px;
+  --fs-item: 13.5px;
+  --fw-title: 650;
+  --fw-display: 650;
+  --label-transform: uppercase;
+  --label-tracking: .06em;
+  --title-tracking: -0.01em;
+
+  --shadow-card: 0 1px 2px oklch(var(--shadow-hue) / var(--shadow-o1)),
+                 0 4px 14px oklch(var(--shadow-hue) / var(--shadow-o2));
+  --shadow-pop: 0 12px 40px oklch(0 0 0 / 0.28);
+  --header-blur: 10px;
+}
+
+:root,
+[data-swatch] {
+  --pos-text: color-mix(in oklab, var(--pos) 80%, var(--text));
+  --neg-text: color-mix(in oklab, var(--neg) 90%, var(--text));
+  --warn-text: color-mix(in oklab, var(--warn) 60%, var(--text));
+}
+
+:root {
+  --c-cost: var(--accent);
+  --c-prev: oklch(0.66 0.02 260);
+  --c-input: oklch(0.60 0.15 262);
+  --c-output: oklch(0.58 0.17 305);
+  --c-cache-write: oklch(0.76 0.15 88);
+  --c-cache-write-1h: oklch(0.62 0.15 62);
+  --c-cache-read: oklch(0.62 0.13 160);
+
+  --m-fable: oklch(0.62 0.19 355);
+  --m-mythos: oklch(0.54 0.20 325);
+  --m-opus: oklch(0.55 0.20 285);
+  --m-sonnet: oklch(0.58 0.19 252);
+  --m-haiku: oklch(0.64 0.14 175);
+  --m-other: oklch(0.60 0.02 260);
+}
+
+:root[data-theme="dark"] {
+  --c-cost: var(--accent);
+  --c-prev: oklch(0.62 0.02 275);
+  --c-input: oklch(0.74 0.13 262);
+  --c-output: oklch(0.72 0.15 305);
+  --c-cache-write: oklch(0.84 0.14 90);
+  --c-cache-write-1h: oklch(0.72 0.15 58);
+  --c-cache-read: oklch(0.78 0.15 160);
+
+  --m-fable: oklch(0.75 0.15 355);
+  --m-mythos: oklch(0.70 0.17 325);
+  --m-opus: oklch(0.72 0.16 285);
+  --m-sonnet: oklch(0.75 0.14 245);
+  --m-haiku: oklch(0.80 0.14 170);
+  --m-other: oklch(0.66 0.02 275);
+}

@@ -3,7 +3,7 @@ import {
   PRICING, PRICING_DEFAULT, RATE_KEYS, FAMILY_FALLBACKS, modelVersion, buildPricing, getPricing, getUnknownModels, priceAt, resolvePrice,
   tierAt, promptTokens, costByType, entryCost, entryCostByType, cacheWrite5m, cacheWrite1h,
 } from '../src/core/config.js';
-import { suggestKey, suggestName, entrySnippet, aliasSnippet } from '../src/features/pricing-help.js';
+import { suggestKey, suggestName, entrySnippet, aliasSnippet } from '../src/core/pricing-snippets.js';
 import { readFileSync } from 'node:fs';
 import {
   detectIndent, serializePriceList, modelId, cleanModelName, normalizeCell, parsePrice, tierQualifier, parsePricingTable, validateRows, mergePriceList, PricingError,

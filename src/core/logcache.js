@@ -1,7 +1,7 @@
 import { parseLogLines } from './parser.js';
 import { openDB, LOG_STORE } from './db.js';
 
-export const LOG_CACHE_VERSION = 1;
+export const LOG_CACHE_VERSION = 2;
 const FINGERPRINT_BYTES = 64;
 const CHUNK_BYTES = 16 * 1024 * 1024;
 const BYTE_BUDGET = 256 * 1024 * 1024;
@@ -64,6 +64,8 @@ const mergeData = (a, b) => ({
   entries: a.entries.concat(b.entries),
   durations: a.durations.concat(b.durations),
   titles: [...new Map([...a.titles, ...b.titles])],
+  aiTitles: [...new Map([...(a.aiTitles ?? []), ...(b.aiTitles ?? [])])],
+  prompts: [...new Map([...(b.prompts ?? []), ...(a.prompts ?? [])])],
 });
 
 function byteBudget(limit) {
@@ -98,7 +100,7 @@ export async function mapLimit(list, limit, fn) {
   return out;
 }
 
-const EMPTY_DATA = () => ({ entries: [], durations: [], titles: [] });
+const EMPTY_DATA = () => ({ entries: [], durations: [], titles: [], aiTitles: [], prompts: [] });
 const MAX_READ_ATTEMPTS = 4;
 
 async function readChanged(file, cachedRecord, parse, item) {
