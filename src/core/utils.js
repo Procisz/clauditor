@@ -1,16 +1,43 @@
 import { state } from './state.js';
+import { tipDot } from '../ui/dom.js';
+import { t } from '../i18n/index.js';
+
+const SCREENS = ['start', 'loading', 'dashboard'];
+let screenListener = null;
+
+export function setScreenListener(fn) { screenListener = fn; }
+
+export function currentScreen() { return document.body.dataset.screen || ''; }
+
+export function setScreen(name) {
+  document.body.dataset.screen = name;
+  const panels = { start: 'welcome', loading: 'loading', dashboard: 'dashboard' };
+  for (const screen of SCREENS) {
+    const el = document.getElementById(panels[screen]);
+    if (el) el.hidden = screen !== name;
+  }
+  screenListener?.(name);
+}
 
 export function showLoading(msg) {
-  document.getElementById('welcome').style.display   = 'none';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('loading').style.display   = 'flex';
+  setScreen('loading');
   setLoadingText(msg);
 }
-export function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
-export function hideLoading()     { document.getElementById('loading').style.display = 'none'; }
-export function showDashboard()   { document.getElementById('welcome').style.display = 'none'; document.getElementById('dashboard').style.display = 'block'; }
-export function showError(msg)    { const el = document.getElementById('error-banner'); el.style.display = 'flex'; el.textContent = msg; }
-export function hideError()       { document.getElementById('error-banner').style.display = 'none'; }
+export function setLoadingText(text) { document.getElementById('loading-text').textContent = text; }
+export function hideLoading() {
+  document.getElementById('loading').hidden = true;
+  if (currentScreen() === 'loading') {
+    document.body.dataset.screen = '';
+    screenListener?.('');
+  }
+}
+export function showDashboard()   { setScreen('dashboard'); }
+export function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.querySelector('.banner-text').textContent = msg;
+  el.hidden = false;
+}
+export function hideError()       { document.getElementById('error-banner').hidden = true; }
 
 const DISMISSALS_KEY = 'clauditor_dismissals';
 const LEGACY_DISMISSED_MODELS_KEY = 'clauditor_dismissed_models';
@@ -52,18 +79,18 @@ export function dismissForAMonth(keys) {
 export function initDismissableNote(elId, key) {
   const el = document.getElementById(elId);
   if (!el) return;
-  if (key in readDismissals()) { el.style.display = 'none'; return; }
+  if (key in readDismissals()) { el.hidden = true; return; }
   const btn = el.querySelector('.note-close');
-  if (btn) btn.onclick = () => { dismissForAMonth(key); el.style.display = 'none'; };
+  if (btn) btn.onclick = () => { dismissForAMonth(key); el.hidden = true; };
 }
 
 export function updateCoworkWarning() {
   const el = document.getElementById('cowork-warning');
   if (!el) return;
   const hasCowork = !!(state.srcCowork && state.srcCowork.entries.length > 0);
-  el.style.display = hasCowork ? 'none' : 'flex';
+  el.hidden = hasCowork;
   const btn = document.getElementById('cowork-warning-close');
-  if (btn) btn.onclick = () => { el.style.display = 'none'; };
+  if (btn) btn.onclick = () => { el.hidden = true; };
 }
 
 export function updatePricingWarning(unknownModels) {
@@ -72,15 +99,13 @@ export function updatePricingWarning(unknownModels) {
   const dismissals = readDismissals();
   const toShow = (unknownModels || []).filter(m => !(('pricing:' + m) in dismissals));
   state.unpricedModels = toShow;
-  if (toShow.length === 0) { el.style.display = 'none'; return; }
-  document.getElementById('pricing-warning-text').textContent =
-    'No exact price for: ' + toShow.join(', ')
-    + '. Their costs are estimated from the closest model family (or default rates). To price them exactly, add them to src/core/pricing.json.';
+  if (toShow.length === 0) { el.hidden = true; return; }
+  document.getElementById('pricing-warning-text').textContent = t('shell.pricingWarning', { models: toShow.join(', ') });
   document.getElementById('pricing-warning-close').onclick = () => {
     dismissForAMonth(toShow.map(m => 'pricing:' + m));
-    el.style.display = 'none';
+    el.hidden = true;
   };
-  el.style.display = 'flex';
+  el.hidden = false;
 }
 
 export function fmtFixed(v, decimals = 0) {
@@ -93,7 +118,7 @@ export function fmtMoney(v) { return '$' + fmtFixed(v, state.moneyDecimals); }
 export function fmtInt(n) { return fmtFixed(n, 0); }
 
 export function fmtDuration(ms) {
-  if (ms <= 0) return '—';
+  if (ms <= 0) return '-';
   if (ms < 60000) return fmtFixed(ms / 1000, 1) + 's';
   const MIN = 60000, H = 3600000, D = 24 * H, W = 7 * D, MO = 30 * D, Y = 365 * D;
   const two = (v1, u1, v2, u2) => v2 > 0 ? `${v1}${u1} ${v2}${u2}` : `${v1}${u1}`;
@@ -128,7 +153,7 @@ export function fmtNum(n) {
 }
 
 export function sessionName(sid, slug) {
-  return state.sessionTitles.get(sid) || slug || (sid ? sid.slice(0, 8) : '(unknown)');
+  return state.sessionTitles.get(sid) || slug || (sid ? sid.slice(0, 8) : t('shell.unknown'));
 }
 
 export function projectKey(e) {
@@ -138,7 +163,7 @@ export function projectKey(e) {
 
 export function projectName(key) {
   if (key.startsWith('cowork:')) return sessionName(key.slice(7), '');
-  if (key === '(unknown)') return '(unknown)';
+  if (key === '(unknown)') return t('shell.unknown');
   const parts = key.replace(/[/\\]+$/, '').split(/[/\\]/);
   return parts[parts.length - 1] || key;
 }
@@ -149,60 +174,15 @@ export function shortPath(p) {
   return p.length > 60 ? '…' + p.slice(-60) : p;
 }
 
-export const PAGE_SIZES = [5, 10, 25, 50, 100];
-
-export function buildPaginator(p, total, rerender) {
-  const maxPage = Math.max(0, Math.ceil(total / p.pageSize) - 1);
-  const start = p.pageIndex * p.pageSize;
-  const pager = domEl('div', 'model-paginator flex items-center justify-end flex-wrap gap-x-4 gap-y-1 text-xs pt-2');
-  pager.appendChild(domText('span', 'opacity-60', 'Rows per page:'));
-  const sel = domEl('select', 'select select-xs w-18');
-  sel.setAttribute('aria-label', 'Rows per page');
-  for (const n of PAGE_SIZES) {
-    const o = domEl('option');
-    o.value = String(n);
-    o.textContent = String(n);
-    if (n === p.pageSize) o.selected = true;
-    sel.appendChild(o);
-  }
-  sel.onchange = () => {
-    const firstItem = p.pageIndex * p.pageSize;
-    p.pageSize = parseInt(sel.value, 10);
-    p.pageIndex = Math.floor(firstItem / p.pageSize);
-    rerender();
-  };
-  pager.appendChild(sel);
-  pager.appendChild(domText('span', 'opacity-60',
-    total === 0 ? '0 of 0' : `${start + 1}–${Math.min(start + p.pageSize, total)} of ${total}`));
-  const nav = domEl('div', 'flex items-center');
-  const mkNav = (txt, label, disabled, page) => {
-    const b = domEl('button', 'btn btn-ghost btn-xs btn-square');
-    b.textContent = txt;
-    b.title = label;
-    b.setAttribute('aria-label', label);
-    b.disabled = disabled;
-    b.onclick = () => { p.pageIndex = page; rerender(); };
-    return b;
-  };
-  nav.appendChild(mkNav('«', 'First page',    p.pageIndex === 0,      0));
-  nav.appendChild(mkNav('‹', 'Previous page', p.pageIndex === 0,      p.pageIndex - 1));
-  nav.appendChild(mkNav('›', 'Next page',     p.pageIndex >= maxPage, p.pageIndex + 1));
-  nav.appendChild(mkNav('»', 'Last page',     p.pageIndex >= maxPage, maxPage));
-  pager.appendChild(nav);
-  return pager;
-}
-
 export function domEl(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
 export function domText(tag, cls, text) { const e = domEl(tag, cls); e.textContent = text; return e; }
-export function domCell(cls, text) { return domText('td', cls, text); }
 export function domClear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
 let _toastHost = null;
 function getToastHost() {
   if (!_toastHost || !_toastHost.isConnected) {
     _toastHost = document.createElement('div');
-    _toastHost.className = 'toast toast-end toast-bottom';
-    _toastHost.style.zIndex = '10000';
+    _toastHost.className = 'toast-host';
     _toastHost.setAttribute('role', 'status');
     _toastHost.setAttribute('aria-live', 'polite');
     document.body.appendChild(_toastHost);
@@ -212,10 +192,11 @@ function getToastHost() {
 
 export function showToast(message, kind = 'success', ms = 2200) {
   const host = getToastHost();
-  for (const prev of host.querySelectorAll('.clauditor-toast')) {
+  for (const prev of host.querySelectorAll('.toast')) {
     if (prev.textContent === message) prev.remove();
   }
-  const el = domText('div', 'clauditor-toast alert alert-' + kind + ' py-2 px-3 text-xs shadow-lg', message);
+  const el = domText('div', 'toast', message);
+  el.dataset.kind = kind;
   host.appendChild(el);
   const remove = () => el.remove();
   setTimeout(() => {
@@ -247,9 +228,9 @@ async function writeClipboard(text) {
   } catch { return false; }
 }
 
-export async function copyToClipboard(text, label = 'Copied') {
+export async function copyToClipboard(text, label = t('shell.copied')) {
   const ok = await writeClipboard(text);
-  showToast(ok ? label : 'Could not copy: select the text and copy it manually', ok ? 'success' : 'error');
+  showToast(ok ? label : t('shell.copyFailed'), ok ? 'success' : 'error');
   return ok;
 }
 
@@ -259,71 +240,18 @@ export function initPathCopy(rootId) {
   root.addEventListener('click', e => {
     const btn = e.target.closest('.path-copy');
     if (!btn || !root.contains(btn)) return;
-    copyToClipboard(btn.textContent.trim(), 'Path copied to clipboard');
+    copyToClipboard(btn.textContent.trim(), t('shell.pathCopied'));
   });
 }
-
-let _floatTip = null;
-function getFloatTip() {
-  if (!_floatTip) {
-    _floatTip = document.createElement('div');
-    _floatTip.style.cssText = 'position:fixed;z-index:9999;max-width:260px;padding:6px 10px;border-radius:6px;font-size:11px;line-height:1.5;pointer-events:none;display:none;white-space:normal;word-break:break-word;';
-    _floatTip.className = 'bg-neutral text-neutral-content shadow-lg';
-    document.body.appendChild(_floatTip);
-  }
-  return _floatTip;
-}
-
-export function makeInfoIcon(tipText) {
-  const span = document.createElement('span');
-  span.textContent = 'ⓘ';
-  const baseOpacity = '0.6';
-  span.style.cssText = `cursor:help;opacity:${baseOpacity};font-size:12px;line-height:1;transition:opacity 0.15s;`;
-  span.addEventListener('mouseenter', e => {
-    const tip = getFloatTip();
-    tip.textContent = tipText;
-    tip.style.display = 'block';
-    requestAnimationFrame(() => positionTip(tip, e));
-    span.style.opacity = '1';
-  });
-  span.addEventListener('mousemove', e => positionTip(getFloatTip(), e));
-  span.addEventListener('mouseleave', () => {
-    getFloatTip().style.display = 'none';
-    span.style.opacity = baseOpacity;
-  });
-  return span;
-}
-
-function positionTip(tip, e) {
-  const pad = 12;
-  const tw = tip.offsetWidth || 260;
-  const th = tip.offsetHeight || 60;
-  let x = e.clientX + pad;
-  let y = e.clientY + pad;
-  if (x + tw > window.innerWidth  - pad) x = e.clientX - tw - pad;
-  if (y + th > window.innerHeight - pad) y = e.clientY - th - pad;
-  tip.style.left = x + 'px';
-  tip.style.top  = y + 'px';
-}
-
-export const BAR_COLORS = {
-  input:      'rgba(108,142,245,.9)',
-  output:     'rgba(167,139,250,.9)',
-  cacheWrite:   'rgba(251,191,36,.9)',
-  cacheWrite1h: 'rgba(217,119,6,.9)',
-  cacheRead:  'rgba(52,211,153,.9)',
-};
 
 export function tokenBar(parts) {
   const totalTok = parts.reduce((sum, x) => sum + x.value, 0);
-  const wrap = domEl('div');
-  const bar = domEl('div', 'flex w-full rounded-full overflow-hidden');
-  bar.style.height = '10px';
-  bar.style.background = 'var(--color-base-300)';
+  const wrap = domEl('div', 'mbar-wrap');
+  const bar = domEl('div', 'mbar');
   if (totalTok > 0) {
     for (const x of parts) {
       if (!x.value) continue;
-      const seg = domEl('div');
+      const seg = domEl('span', 'mbar-seg');
       seg.style.width = (x.value / totalTok * 100) + '%';
       seg.style.background = x.color;
       seg.title = `${x.label}: ${fmtNum(x.value)} (${fmtFixed(x.value / totalTok * 100, 1)}%)`;
@@ -331,13 +259,13 @@ export function tokenBar(parts) {
     }
   }
   wrap.appendChild(bar);
-  const legend = domEl('div', 'flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs');
+  const legend = domEl('div', 'mbar-legend');
   for (const x of parts) {
-    const item = domEl('span', 'flex items-center gap-1.5');
-    const dot = domEl('span', 'rounded-full inline-block');
-    dot.style.cssText = `width:8px;height:8px;background:${x.color};`;
+    const item = domEl('span', 'mbar-item');
+    const dot = domEl('span', 'mbar-dot');
+    dot.style.background = x.color;
     item.appendChild(dot);
-    item.appendChild(domText('span', 'opacity-70', `${x.label} ${fmtNum(x.value)}`));
+    item.appendChild(domText('span', '', `${x.label} ${fmtNum(x.value)}`));
     legend.appendChild(item);
   }
   wrap.appendChild(legend);
@@ -346,17 +274,8 @@ export function tokenBar(parts) {
 
 export function cacheWriteSplitTitle(total, oneHour) {
   const fiveMin = Math.max(0, total - oneHour);
-  if (total === 0) return 'No cache writes';
-  return `${fmtNum(oneHour)} tokens written to the 1-hour cache (billed at 2× input) · `
-    + `${fmtNum(fiveMin)} to the 5-minute cache (1.25× input)`;
-}
-
-export function badgeClass(model) {
-  const m = (model || '').toLowerCase();
-  if (m.includes('fable') || m.includes('mythos')) return 'badge-accent';
-  if (m.includes('opus'))   return 'badge-secondary';
-  if (m.includes('haiku'))  return 'badge-success';
-  return 'badge-primary';
+  if (total === 0) return t('shell.noCacheWrites');
+  return t('shell.cacheWriteSplit', { oneHour: fmtNum(oneHour), fiveMin: fmtNum(fiveMin) });
 }
 
 export function shortModelName(model) {
@@ -369,15 +288,9 @@ export function shortModelName(model) {
   return (model || '').slice(0, 12);
 }
 
-export function applySortHeaders(tableId) {
-  const dir = state.tableSortDirs[tableId] || -1;
-  const table = document.getElementById(tableId);
-  if (!table) return;
-
-  const ths = table.querySelectorAll(':scope > thead th');
-  const sortCol = state.tableSortCols[tableId] !== undefined ? state.tableSortCols[tableId] : ths.length - 1;
-  ths.forEach((th, i) => {
-    th.classList.remove('sort-asc', 'sort-desc');
-    if (i === sortCol) { th.classList.toggle('sort-asc', dir === 1); th.classList.toggle('sort-desc', dir === -1); }
-  });
+const DEFAULT_MONEY_DECIMALS = 2;
+export function clampDecimals(v) {
+  if (v === '' || v === null || v === undefined) return DEFAULT_MONEY_DECIMALS;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(8, Math.max(0, n)) : DEFAULT_MONEY_DECIMALS;
 }

@@ -13,17 +13,7 @@ function saveArchiveHandle(handle) { return saveHandle(handle, ARCHIVE_KEY); }
 export function getArchiveHandle() { return loadHandle(ARCHIVE_KEY); }
 
 export function updateArchiveButton(folderName) {
-  const btn = document.getElementById('btn-archive');
-  if (!btn) return;
-  if (folderName) {
-    btn.textContent = 'Archive: ' + folderName;
-    btn.title = 'Archive active — click to change folder';
-    btn.classList.replace('btn-ghost', 'btn-success');
-  } else {
-    btn.textContent = 'Set Archive';
-    btn.title = 'Set a folder to persist data across Claude Code log cleanups';
-    btn.classList.replace('btn-success', 'btn-ghost');
-  }
+  state.archiveName = folderName || '';
 }
 
 async function ensurePermission(handle) {
@@ -170,13 +160,11 @@ export async function selectArchiveFolder(rerenderCallback) {
     updateArchiveButton(handle.name);
     if (state.srcCode || state.srcCowork) {
 
-      const src = state.srcCode || (state.srcCode = { entries: [], durations: [], titles: new Map(), liveSids: new Set() });
+      const src = state.srcCode || (state.srcCode = { entries: [], durations: [], titles: new Map(), aiTitles: new Map(), prompts: new Map(), archivedTitles: new Map(), liveSids: new Set() });
       const fromMonth = localStorage.getItem('clauditor_date_from')?.slice(0, 7) || '';
       const { entries, durations, titles } = await readArchive(handle, fromMonth);
 
-      for (const [sid, t] of titles) {
-        if (!src.liveSids.has(sid) && !(state.srcCowork && state.srcCowork.titles.has(sid))) src.titles.set(sid, t);
-      }
+      for (const [sid, t] of titles) src.archivedTitles.set(sid, t);
       const existingIds = new Set(state.allEntries.map(entryKey));
 
       const byKey = new Map();

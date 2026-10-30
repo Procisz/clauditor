@@ -1,11 +1,12 @@
 import { entryCost, cacheWrite1h } from './config.js';
 import { state } from './state.js';
 import { dayKey, todayKey, getWeekKey, getMonthKey } from './dates.js';
+import { t } from '../i18n/index.js';
 
 export function entryKey(e)    { return e.msgId || (e.ts + '|' + e.sessionId); }
 export function durationKey(d) { return d.ts + '|' + d.sessionId; }
 
-const LOG_LINE_MARKERS = /"usage"|"turn_duration"|"custom-title"/;
+const LOG_LINE_MARKERS = /"usage"|"turn_duration"|"custom-title"|"ai-title"|"last-prompt"/;
 
 export function parseLogLines(text) {
   const records = [];
@@ -62,6 +63,46 @@ export function parseSessionTitles(records) {
   return titles;
 }
 
+export const PROMPT_TITLE_MAX = 80;
+
+export function promptTitle(text) {
+  if (typeof text !== 'string') return '';
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= PROMPT_TITLE_MAX) return flat;
+  return flat.slice(0, PROMPT_TITLE_MAX - 1).trimEnd() + '\u2026';
+}
+
+export function parseAiTitles(records) {
+  const titles = new Map();
+  for (const r of records) {
+    if (r.type !== 'ai-title') continue;
+    if (!r.aiTitle || !r.sessionId) continue;
+    titles.set(r.sessionId, r.aiTitle);
+  }
+  return titles;
+}
+
+export function parseFirstPrompts(records) {
+  const prompts = new Map();
+  for (const r of records) {
+    if (r.type !== 'last-prompt' || !r.sessionId || prompts.has(r.sessionId)) continue;
+    const title = promptTitle(r.lastPrompt);
+    if (title) prompts.set(r.sessionId, title);
+  }
+  return prompts;
+}
+
+export function resolveSessionTitles({ titles, aiTitles, prompts, archivedTitles } = {}) {
+  const sources = [titles, aiTitles, prompts, archivedTitles].filter(Boolean);
+  const ids = new Set(sources.flatMap(m => [...m.keys()]));
+  const resolved = new Map();
+  for (const sid of ids) {
+    const title = sources.map(m => m.get(sid)).find(Boolean);
+    if (title) resolved.set(sid, title);
+  }
+  return resolved;
+}
+
 export function parseDurations(records) {
   const durations = [];
   for (const r of records) {
@@ -103,11 +144,11 @@ export function parseCoworkEntries(records, taskId) {
 }
 
 export function sessionType(kind) {
-  return kind === 'cowork' ? 'Cowork' : 'Code';
+  return kind === 'cowork' ? t('shell.typeCowork') : t('shell.typeCode');
 }
 
 export function sessionOrigin(entrypoint) {
-  return (entrypoint || '').toLowerCase() === 'claude-desktop' ? 'Desktop app' : 'CLI';
+  return (entrypoint || '').toLowerCase() === 'claude-desktop' ? t('shell.originDesktop') : t('shell.originCli');
 }
 
 export function getFilteredEntries() {

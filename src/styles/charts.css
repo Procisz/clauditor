@@ -1,0 +1,35 @@
+.chart-wrap { position: relative; }
+
+.apexcharts-canvas { background: transparent !important; }
+.apexcharts-tooltip {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: var(--border-w) solid var(--border-strong) !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  box-shadow: var(--shadow-pop) !important;
+}
+.apexcharts-tooltip-title {
+  background: var(--surface-2) !important;
+  border-bottom: var(--border-w) solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: inherit !important;
+}
+.apexcharts-tooltip-text-y-label,
+.apexcharts-tooltip-text-y-value,
+.apexcharts-tooltip-text-z-value {
+  color: inherit !important;
+}
+.apexcharts-legend-text { color: var(--text-muted) !important; }
+.apexcharts-gridline { stroke: var(--chart-grid); }
+.apexcharts-text { fill: var(--text-muted); }
+
+.apexcharts-heatmap-rect {
+  transition: filter 0.1s, stroke-width 0.1s;
+  stroke: var(--surface) !important;
+  stroke-width: 1px !important;
+}
+.apexcharts-heatmap-rect:hover,
+.apexcharts-heatmap-rect[selected="true"] {
+  stroke-width: 2px !important;
+}
