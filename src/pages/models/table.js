@@ -1,10 +1,10 @@
 import { state } from '../../core/state.js';
 import { groupTotals } from '../../core/metrics.js';
 import { cacheWriteSplitTitle, fmtInt, fmtMoney, fmtNum } from '../../core/utils.js';
-import { esc, modelBadge } from '../../ui/dom.js';
+import { esc, modelBadge, modelTone } from '../../ui/dom.js';
 import { cell, dataTable } from '../../ui/table.js';
 import { t, tn } from '../../i18n/index.js';
-import { EFFORT_RANK, effortBadge, effortsSorted, renderSessionsSubTable } from '../../components/sessions.js';
+import { EFFORT_RANK, effortBadge, effortsSorted, familyChips, renderSessionsSubTable } from '../../components/sessions.js';
 import { groupEntries } from './helpers.js';
 
 export function effortByModel(entries) {
@@ -14,6 +14,16 @@ export function effortByModel(entries) {
     if (!m) out.set(e.model, (m = { levels: new Map(), unknown: 0 }));
     if (e.effort) m.levels.set(e.effort, (m.levels.get(e.effort) ?? 0) + 1);
     else m.unknown++;
+  }
+  return out;
+}
+
+function kindsByModel(entries) {
+  const out = new Map();
+  for (const e of entries) {
+    const kinds = out.get(e.model) ?? new Set();
+    kinds.add(e.sessionKind || 'code');
+    out.set(e.model, kinds);
   }
   return out;
 }
@@ -34,9 +44,11 @@ function effortCell(mix) {
 
 export function modelRows(entries, markup) {
   const effort = effortByModel(entries);
+  const kinds = kindsByModel(entries);
   return groupTotals(entries, (e) => e.model, markup).map((g) => ({
     rowKey: g.key,
     model: cell(g.key, modelBadge(g.key)),
+    kinds: cell([...(kinds.get(g.key) ?? [])].join(' ')),
     requests: cell(g.requests, esc(fmtInt(g.requests))),
     sessions: cell(g.sessions, esc(fmtInt(g.sessions))),
     input: cell(g.input, esc(fmtNum(g.input))),
@@ -92,6 +104,15 @@ export function modelsTable(ctx) {
     rows: modelRows(ctx.entries, ctx.markup),
     pageSize: 10,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: {
+      keys: ['model'],
+      placeholder: t('models.searchPlaceholder'),
+      chips: [
+        ...familyChips((row) => [modelTone(row.model.v)]),
+        { id: 'code', label: t('components.type.code'), group: 'type', test: (row) => row.kinds.v.split(' ').includes('code') },
+        { id: 'cowork', label: t('components.type.cowork'), group: 'type', test: (row) => row.kinds.v.split(' ').includes('cowork') },
+      ],
+    },
     expand: {
       key: (row) => row.rowKey,
       defaultOpen: [...open],

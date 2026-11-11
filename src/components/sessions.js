@@ -2,11 +2,15 @@ import { state } from '../core/state.js';
 import { entryCost } from '../core/config.js';
 import { sessionSummaries } from '../core/metrics.js';
 import { sessionName, projectName, shortPath, fmtDuration, fmtNum, fmtInt, fmtFixed, fmtMoney } from '../core/utils.js';
-import { esc, modelBadge } from '../ui/dom.js';
+import { esc, modelBadge, modelTone } from '../ui/dom.js';
 import { cell, subTable } from '../ui/table.js';
 import { t, tn, getLocale } from '../i18n/index.js';
 
 export const EFFORT_RANK = Object.freeze({ low: 1, medium: 2, high: 3, xhigh: 4, max: 5 });
+
+export const EXPENSIVE_COST = 1;
+
+const FAMILIES = Object.freeze(['opus', 'sonnet', 'haiku']);
 
 const EFFORT_TONES = { max: 'bad', xhigh: 'warn', high: 'info' };
 
@@ -69,6 +73,8 @@ export function sessionRows(summaries) {
     return {
       sessionId: s.sessionId,
       summary: s,
+      id: cell(s.sessionId),
+      families: cell([...new Set(models.map((m) => modelTone(m)))].join(' ')),
       name: cell(name, `<span class="trunc" title="${esc(s.sessionId ? `${name}\n${s.sessionId}` : name)}">${esc(name)}</span>`),
       start: cell(s.start, esc(startText(s.start) || '-')),
       project: cell(project, `<span class="trunc" title="${esc(projectTip)}">${esc(project)}</span>`),
@@ -85,6 +91,36 @@ export function sessionRows(summaries) {
   });
 }
 
+export function familyChips(familiesOf) {
+  return FAMILIES.map((id) => ({
+    id,
+    label: t(`components.family.${id}`),
+    group: 'family',
+    test: (row) => familiesOf(row).includes(id),
+  }));
+}
+
+export function sessionFilter({ omit = [] } = {}) {
+  const has = (key) => !omit.includes(key);
+  const keys = ['name', 'id', ...['project', 'type', 'source', 'models', 'effort'].filter(has)];
+  const chips = [];
+  if (has('type')) {
+    chips.push(
+      { id: 'code', label: t('components.type.code'), group: 'type', test: (row) => row.type.v === 'code' },
+      { id: 'cowork', label: t('components.type.cowork'), group: 'type', test: (row) => row.type.v === 'cowork' },
+    );
+  }
+  if (has('source')) {
+    chips.push(
+      { id: 'cli', label: t('components.source.cli'), group: 'source', test: (row) => row.summary.source === 'cli' },
+      { id: 'desktop', label: t('components.source.desktop'), group: 'source', test: (row) => row.summary.source === 'desktop' },
+    );
+  }
+  if (has('models')) chips.push(...familyChips((row) => row.families.v.split(' ')));
+  chips.push({ id: 'expensive', label: t('components.filter.expensive'), group: 'expensive', test: (row) => row.cost.v >= EXPENSIVE_COST });
+  return { keys, placeholder: t('components.search.sessions'), chips };
+}
+
 export function renderSessionsSubTable(host, entries, { onOpen = null, omit = ['project'], markup = state.markup } = {}) {
   const summaries = sessionSummaries(entries, markup);
   subTable(host, {
@@ -94,6 +130,7 @@ export function renderSessionsSubTable(host, entries, { onOpen = null, omit = ['
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
     onRowClick: onOpen ? (row) => { if (row.sessionId) onOpen(row.sessionId); } : null,
+    filter: sessionFilter({ omit }),
   });
 }
 
@@ -142,5 +179,10 @@ export function renderAgentBreakdown(host, sessionEntries, { markup = state.mark
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: {
+      keys: ['agent', 'model'],
+      placeholder: t('components.search.agents'),
+      chips: familyChips((row) => [modelTone(row.model.v)]),
+    },
   });
 }

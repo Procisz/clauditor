@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pages } from '../../../src/pages/index.js';
-import { inRange, previousRange } from '../../../src/core/metrics.js';
+import { inRange, previousRange, sessionSummaries } from '../../../src/core/metrics.js';
 import { state } from '../../../src/core/state.js';
+import { sessionName } from '../../../src/core/utils.js';
 import { setLang, t } from '../../../src/i18n/index.js';
 import messages from '../../../src/i18n/messages/index.js';
 import { destroyAllCharts } from '../../../src/ui/charts.js';
 import ApexCharts from '../../mocks/apexcharts.js';
-import { click, flush, mountPanel } from '../../helpers/dom.js';
-import { fixtureDurations, fixtureEntries, makeEntry } from '../../helpers/fixtures.js';
+import { click, flush, input, mountPanel } from '../../helpers/dom.js';
+import { entryCostingAtLeast, fixtureDurations, fixtureEntries, makeEntry } from '../../helpers/fixtures.js';
 
 const HOSTS = {
   overview: ['ov-cost-trend', 'ov-token-trend', 'ov-model-mix', 'ov-top-projects', 'ov-hour-weekday', 'ov-calendar'],
@@ -247,5 +248,134 @@ describe('table pages', () => {
   it('Sessions shows the sessions table and the agent types table', async () => {
     const mount = await renderPage(find('sessions'), makeContext(fixtureEntries()));
     expect(mount.querySelectorAll('.dtable')).toHaveLength(2);
+  });
+});
+
+describe('table search and quick filter chips on the pages', () => {
+  const find = (id) => pages.find((p) => p.id === id);
+  const TABLE_ENTRIES = () => [
+    entryCostingAtLeast(2, { sessionId: 'opus-code-01', cwd: '/work/alpha', entrypoint: 'cli', model: 'claude-opus-999', ts: '2026-10-15T08:00:00.000Z' }),
+    makeEntry({ sessionId: 'haiku-alpha-05', cwd: '/work/alpha', model: 'claude-haiku-999', ts: '2026-10-15T08:30:00.000Z' }),
+    makeEntry({ sessionId: 'haiku-code-02', cwd: '/work/beta', entrypoint: 'claude-desktop', model: 'claude-haiku-999', ts: '2026-10-15T09:00:00.000Z' }),
+    makeEntry({ sessionId: 'sonnet-cowork-03', cwd: '', sessionKind: 'cowork', entrypoint: 'claude-desktop', model: 'claude-sonnet-999', ts: '2026-10-15T10:00:00.000Z' }),
+    makeEntry({ sessionId: 'opus-cowork-04', cwd: '', sessionKind: 'cowork', entrypoint: 'claude-desktop', model: 'claude-opus-999', ts: '2026-10-15T11:00:00.000Z' }),
+  ];
+  const parentTable = (mount) => mount.querySelector('.dtable');
+  const parentChips = (table) => [...table.querySelectorAll('.sub-filter-chip')].filter((b) => !b.closest('.dt-panel-content'));
+  const chipLabels = (table) => parentChips(table).map((b) => b.textContent);
+  const parentChip = (table, label) => parentChips(table).find((b) => b.textContent === label);
+  const rowNames = (table) => [...table.querySelectorAll('tr.dt-row')].map((tr) => tr.children[1].textContent);
+  const subRows = (table) => table.querySelectorAll('.dt-panel-content .sub-tbl tbody tr[data-i]');
+
+  describe('Models', () => {
+    it('offers the family and type chips of the models', async () => {
+      const mount = await renderPage(find('models'), makeContext(TABLE_ENTRIES()));
+      expect(chipLabels(parentTable(mount))).toEqual(['Opus', 'Sonnet', 'Haiku', 'Code', 'Cowork']);
+    });
+
+    it('keeps only the Haiku model with the Haiku chip', async () => {
+      const mount = await renderPage(find('models'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(parentChip(table, 'Haiku'));
+      expect(rowNames(table)).toEqual(['haiku']);
+    });
+
+    it('keeps the models used by Cowork sessions with the Cowork chip', async () => {
+      const mount = await renderPage(find('models'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(parentChip(table, 'Cowork'));
+      expect(rowNames(table)).toEqual(['opus', 'sonnet']);
+    });
+
+    it('shows no model for Cowork and Haiku together', async () => {
+      const mount = await renderPage(find('models'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(parentChip(table, 'Cowork'));
+      click(parentChip(table, 'Haiku'));
+      expect(table.querySelector('tbody').textContent).toBe('No matches');
+    });
+
+    it('gives an expanded model row a search of its own sessions', async () => {
+      const mount = await renderPage(find('models'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(table.querySelector('tr.dt-row[data-row-id="claude-opus-999"]'));
+      const sub = table.querySelector('.dt-panel-content');
+      expect(sub.querySelector('.sub-filter-input').placeholder).toBe('Search sessions');
+      input(sub.querySelector('.sub-filter-input'), 'opus-cowork');
+      expect(subRows(table)).toHaveLength(1);
+      expect(table.querySelectorAll('tr.dt-row')).toHaveLength(3);
+    });
+  });
+
+  describe('Projects', () => {
+    it('offers the type and family chips of the projects', async () => {
+      const mount = await renderPage(find('projects'), makeContext(TABLE_ENTRIES()));
+      expect(chipLabels(parentTable(mount))).toEqual(['Code', 'Cowork', 'Opus', 'Sonnet', 'Haiku']);
+    });
+
+    it('keeps the Cowork tasks with the Cowork chip', async () => {
+      const mount = await renderPage(find('projects'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(parentChip(table, 'Cowork'));
+      expect(rowNames(table).sort()).toEqual(['opus-cow', 'sonnet-c']);
+    });
+
+    it('keeps the projects that used Haiku with the Haiku chip', async () => {
+      const mount = await renderPage(find('projects'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(parentChip(table, 'Haiku'));
+      expect(rowNames(table).sort()).toEqual(['alpha', 'beta']);
+    });
+
+    it('searches the project names', async () => {
+      const mount = await renderPage(find('projects'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      input(table.querySelector('.sub-filter-input'), 'beta');
+      expect(rowNames(table)).toEqual(['beta']);
+    });
+
+    it('gives an expanded project row a search of its own sessions', async () => {
+      const mount = await renderPage(find('projects'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      click(table.querySelector('tr.dt-row[data-row-id="/work/alpha"]'));
+      input(table.querySelector('.dt-panel-content .sub-filter-input'), 'haiku-alpha');
+      expect(subRows(table)).toHaveLength(1);
+      expect(table.querySelectorAll('tr.dt-row')).toHaveLength(4);
+    });
+  });
+
+  describe('Sessions', () => {
+    it('offers the type, source, family and expensive chips', async () => {
+      const mount = await renderPage(find('sessions'), makeContext(TABLE_ENTRIES()));
+      expect(chipLabels(parentTable(mount))).toEqual(['Code', 'Cowork', 'CLI', 'Desktop app', 'Opus', 'Sonnet', 'Haiku', 'Expensive only']);
+    });
+
+    it('keeps the default cost order after a chip is turned on and off', async () => {
+      const entries = TABLE_ENTRIES();
+      const mount = await renderPage(find('sessions'), makeContext(entries));
+      const table = parentTable(mount);
+      const costOrder = sessionSummaries(entries, 1)
+        .sort((a, b) => b.final - a.final)
+        .map((s) => sessionName(s.sessionId, s.slug));
+      expect(rowNames(table)).toEqual(costOrder);
+      click(parentChip(table, 'Desktop app'));
+      expect(rowNames(table)).toEqual([sessionName('haiku-code-02', '')]);
+      click(parentChip(table, 'Desktop app'));
+      expect(rowNames(table)).toEqual(costOrder);
+    });
+
+    it('searches sessions by their id', async () => {
+      const mount = await renderPage(find('sessions'), makeContext(TABLE_ENTRIES()));
+      const table = parentTable(mount);
+      input(table.querySelector('.sub-filter-input'), 'opus-cowork');
+      expect(rowNames(table)).toEqual([sessionName('opus-cowork-04', '')]);
+    });
+
+    it('gives the agent types table a search but no chips', async () => {
+      const mount = await renderPage(find('sessions'), makeContext(TABLE_ENTRIES()));
+      const agentInput = mount.querySelector('input[placeholder="Search agent types"]');
+      expect(agentInput).not.toBeNull();
+      expect(agentInput.closest('.dtable').querySelector('.sub-filter-chip')).toBeNull();
+    });
   });
 });

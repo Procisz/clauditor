@@ -61,9 +61,11 @@ export default {
     'today.calls.output': 'Output tokens',
     'today.sessions.title': 'Sessions',
     'today.sessions.hint': 'click a row for the agent breakdown, the name opens the session',
+    'today.sessions.searchPlaceholder': 'Search sessions',
     'today.projects.title': 'Projects',
     'today.projects.count.one': '{count} project',
     'today.projects.count.other': '{count} projects',
+    'today.projects.searchPlaceholder': 'Search projects',
   },
   hu: {
     'today.prevDay': 'Előző nap',
@@ -127,8 +129,10 @@ export default {
     'today.calls.output': 'Kimeneti tokenek',
     'today.sessions.title': 'Munkamenetek',
     'today.sessions.hint': 'kattints egy sorra az ügynökök bontásáért, a név megnyitja a munkamenetet',
+    'today.sessions.searchPlaceholder': 'Munkamenetek keresése',
     'today.projects.title': 'Projektek',
     'today.projects.count.one': '{count} projekt',
     'today.projects.count.other': '{count} projekt',
+    'today.projects.searchPlaceholder': 'Projektek keresése',
   },
 };

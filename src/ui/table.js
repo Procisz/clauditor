@@ -51,9 +51,12 @@ export function dataTable({ span = 6, color = '', iconId = '', title, sub = '', 
     columns, rows, expand, filter, sizeId,
     onRowClick: expand ? null : onRowClick,
     open: new Set((expand?.defaultOpen ?? []).map(String)),
+    subs: new Map(),
     sort: defaultSort ? { ...defaultSort } : null,
     page: { pageSize, pageIndex: 0 },
     query: '',
+    chips: new Set(),
+    focusChip: null,
     el: null,
   });
   scheduleHydrate(id);
@@ -149,7 +152,7 @@ function renderTable(st) {
         ? visible.map((r, i) => rowHtml(st, r, i)).join('')
         : `<tr><td colspan="${colCount}" class="muted">${esc(noRowsText(st, unfilteredTotal))}</td></tr>`}</tbody>
     </table></div>
-    ${pagerHtml(page, total, start, maxPage, st.query ? unfilteredTotal : null)}`;
+    ${pagerHtml(page, total, start, maxPage, isFiltering(st) ? unfilteredTotal : null)}`;
 
   const own = (node) => !node.closest('.dt-panel-content');
 
@@ -167,10 +170,13 @@ function renderTable(st) {
     for (const host of el.querySelectorAll('.dt-panel-content')) {
       const rowId = host.dataset.rowId;
       const row = st.visible.find((r) => String(expand.key(r)) === rowId);
+      host._sub = st.subs.get(rowId);
       if (row) expand.render(row, host);
+      if (host._sub) st.subs.set(rowId, host._sub);
       const wrap = host.parentElement;
       requestAnimationFrame(() => wrap.classList.add('expand-open'));
     }
+    for (const id of [...st.subs.keys()]) if (!st.open.has(id)) st.subs.delete(id);
   }
 
   if (st.onRowClick) {
@@ -306,6 +312,8 @@ export function subTable(host, { caption = '', columns, rows, pageSize = 5, defa
     sizeKey: tableKey(host, columns),
     page: { pageSize: storedSize(tableKey(host, columns)) ?? pageSize, pageIndex: 0 },
     query: '',
+    chips: new Set(),
+    focusChip: null,
   });
   st.columns = columns;
   st.rows = rows;
@@ -329,13 +337,35 @@ function searchableOf(row, keys) {
   return { plain: foldText(parts.join(' ')), compact: parts.map(compactText).filter(Boolean) };
 }
 
-function applyFilter(rows, st) {
-  const keys = st.filter?.keys;
-  const q = foldText(st.query).trim();
-  if (!keys?.length || !q) return rows;
+const groupOf = (chip) => chip.group ?? chip.id;
 
-  const words = q.split(/\s+/).map((w) => ({ plain: w, compact: compactText(w) }));
+function activeChips(st) {
+  return (st.filter?.chips ?? []).filter((c) => st.chips.has(c.id));
+}
+
+function visibleChips(st) {
+  return (st.filter?.chips ?? []).filter((c) => st.chips.has(c.id) || st.rows.some((r) => c.test(r)));
+}
+
+function isFiltering(st) {
+  return Boolean(st.query) || activeChips(st).length > 0;
+}
+
+function chipGroups(chips) {
+  return [...new Set(chips.map(groupOf))].map((g) => chips.filter((c) => groupOf(c) === g));
+}
+
+function applyFilter(rows, st) {
+  const keys = st.filter?.keys ?? [];
+  const q = foldText(st.query).trim();
+  const groups = chipGroups(activeChips(st));
+  const textOn = keys.length > 0 && q !== '';
+  if (!textOn && !groups.length) return rows;
+
+  const words = textOn ? q.split(/\s+/).map((w) => ({ plain: w, compact: compactText(w) })) : [];
   return rows.filter((r) => {
+    if (!groups.every((list) => list.some((c) => c.test(r)))) return false;
+    if (!textOn) return true;
     const hay = searchableOf(r, keys);
     return words.every((w) =>
       hay.plain.includes(w.plain) || (w.compact && hay.compact.some((part) => part.includes(w.compact))));
@@ -367,7 +397,7 @@ function renderSub(host, st) {
               .map((c) => `<td class="${c.num ? 'num' : ''}">${r[c.key]?.html ?? '-'}</td>`).join('')}</tr>`).join('')
           : `<tr><td colspan="${columns.length}" class="muted">${esc(noRowsText(st, unfilteredTotal))}</td></tr>`}</tbody>
       </table></div>
-      ${pagerHtml(page, total, start, maxPage, st.query ? unfilteredTotal : null)}
+      ${pagerHtml(page, total, start, maxPage, isFiltering(st) ? unfilteredTotal : null)}
     </div>`;
 
   host.onclick = (e) => e.stopPropagation();
@@ -437,46 +467,69 @@ function pagerHtml(page, total, start, maxPage, unfilteredTotal = null) {
 }
 
 function noRowsText(st, unfilteredTotal) {
-  if (!st.query || !unfilteredTotal) return t('common.noData');
+  if (!isFiltering(st) || !unfilteredTotal) return t('common.noData');
   return st.filter?.emptyText ?? t('common.noMatches');
+}
+
+function toggleChip(st, id) {
+  if (st.chips.has(id)) st.chips.delete(id);
+  else st.chips.add(id);
+  st.page.pageIndex = 0;
+  st.focusChip = id;
 }
 
 function wireFilter(scope, st, rerender, own = () => true) {
   const input = [...scope.querySelectorAll('.sub-filter-input')].filter(own)[0];
-  if (!input) return;
+  if (input) {
+    const commit = (value, caret) => {
+      st.query = value;
+      st.page.pageIndex = 0;
+      st.restoreFocus = { caret };
+      rerender();
+    };
+    input.oninput = () => commit(input.value, input.selectionStart);
 
-  const commit = (value, caret) => {
-    st.query = value;
-    st.page.pageIndex = 0;
-    st.restoreFocus = { caret };
-    rerender();
-  };
-  input.oninput = () => commit(input.value, input.selectionStart);
+    input.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape' && st.query) {
+        e.preventDefault();
+        commit('', 0);
+      }
+    };
+    const clear = [...scope.querySelectorAll('.sub-filter-clear')].filter(own)[0];
+    if (clear) clear.onclick = () => commit('', 0);
 
-  input.onkeydown = (e) => {
-    e.stopPropagation();
-    if (e.key === 'Escape' && st.query) {
-      e.preventDefault();
-      commit('', 0);
+    if (st.restoreFocus) {
+      const caret = st.restoreFocus.caret ?? input.value.length;
+      st.restoreFocus = null;
+      input.focus();
+      try { input.setSelectionRange(caret, caret); } catch {}
     }
-  };
-  const clear = [...scope.querySelectorAll('.sub-filter-clear')].filter(own)[0];
-  if (clear) clear.onclick = () => commit('', 0);
+  }
 
-  if (st.restoreFocus) {
-    const caret = st.restoreFocus.caret ?? input.value.length;
-    st.restoreFocus = null;
-    input.focus();
-    try { input.setSelectionRange(caret, caret); } catch {}
+  const chipButtons = [...scope.querySelectorAll('.sub-filter-chip')].filter(own);
+  for (const btn of chipButtons) {
+    btn.onclick = () => {
+      toggleChip(st, btn.dataset.chip);
+      rerender();
+    };
+  }
+  if (st.focusChip) {
+    const id = st.focusChip;
+    st.focusChip = null;
+    chipButtons.find((btn) => btn.dataset.chip === id)?.focus();
   }
 }
 
 function filterBarHtml(st) {
-  const { placeholder = t('common.search') } = st.filter;
+  const { placeholder = t('common.search'), keys = [] } = st.filter;
+  const chips = visibleChips(st);
+  if (!keys.length && !chips.length) return '';
+
   const value = st.query;
   const clearLabel = esc(t('common.clearSearch'));
-  return `<div class="sub-filter">
-    <div class="sub-filter-box">
+  const search = keys.length
+    ? `<div class="sub-filter-box">
       <span class="sub-filter-icon">${icon('i-search')}</span>
       <input type="text" class="sub-filter-input" value="${esc(value)}"
         placeholder="${esc(placeholder)}" aria-label="${esc(placeholder)}"
@@ -484,6 +537,12 @@ function filterBarHtml(st) {
       ${value
         ? `<button type="button" class="sub-filter-clear" aria-label="${clearLabel}" title="${clearLabel}">${icon('i-x')}</button>`
         : ''}
-    </div>
-  </div>`;
+    </div>`
+    : '';
+  const chipHtml = chips.length
+    ? `<div class="sub-filter-chips" role="group" aria-label="${esc(t('common.quickFilters'))}">${chips
+      .map((c) => `<button type="button" class="sub-filter-chip" data-chip="${esc(c.id)}" aria-pressed="${st.chips.has(c.id)}">${esc(c.label)}</button>`)
+      .join('')}</div>`
+    : '';
+  return `<div class="sub-filter">${search}${chipHtml}</div>`;
 }

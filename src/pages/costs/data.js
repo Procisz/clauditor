@@ -107,10 +107,12 @@ export function cacheSeries(entries, range, markup) {
 export function monthlyRows(allEntries, markup) {
   const groups = groupTotals(allEntries.filter((e) => e.date), (e) => e.date.slice(0, 7), markup);
   const byMonth = new Map(groups.map((g) => [g.key, g]));
-  return groups.map((g) => {
-    const before = byMonth.get(previousMonthKey(g.key));
-    return { ...g, change: before ? pctChange(g.final, before.final) : null };
-  });
+  return groups
+    .map((g) => {
+      const before = byMonth.get(previousMonthKey(g.key));
+      return { ...g, change: before ? pctChange(g.final, before.final) : null };
+    })
+    .sort((a, b) => (b.key > a.key) - (b.key < a.key));
 }
 
 export function tokenUsage(entries, markup) {

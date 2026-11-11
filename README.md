@@ -56,7 +56,9 @@ The header holds six page tabs. Each page has its own address (`#overview`, `#to
 - **Sessions**: all sessions of the period and an agent types table; session length and cost per session distributions, cost by agent type, subagent share of cost over time, sessions and average cost per period, sessions by source
 - **Costs**: all-time totals, budget gauge, monthly forecast with a projection to month end, cost by token type over time, cache hit rate and savings, average cost by weekday, monthly totals and the all-time token usage section
 
-Every table opens sorted by final cost, most expensive first. Table cells stay on one line, so a long name ends in "..." (hover it for the full text), and a table wider than the screen scrolls sideways inside its card.
+Every table opens sorted by final cost, most expensive first, except Monthly totals on Costs, which opens with the latest month first. Table cells stay on one line, so a long name ends in "..." (hover it for the full text), and a table wider than the screen scrolls sideways inside its card.
+
+**Search and quick filters.** Every table and expandable session list has a search box. It matches the text columns (names, projects, models, titles, session ids and month labels), never the numbers. Next to it are quick filter chips: Type (Code, Cowork), Source (Desktop app, CLI), model family (Opus, Sonnet, Haiku), Expensive only (final cost of $1 or more) on the session lists, and Cost up or Cost down on Monthly totals. A chip shows only when some row matches it. Chips of one group match any of their picks (Opus and Haiku shows both), chips of different groups must all match, and the search must match too. Search and chips only narrow the rows: sorting, paging and every number stay as they were, and the search text and chips are not saved.
 
 **Language.** Settings, General switches the interface between English (the default) and Hungarian. The choice is saved. Page addresses stay English in both languages.
 

@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sessionColumns, sessionRows, renderSessionsSubTable, renderAgentBreakdown, effortsSorted } from '../../../src/components/sessions.js';
+import { EXPENSIVE_COST, sessionColumns, sessionFilter, sessionRows, renderSessionsSubTable, renderAgentBreakdown, effortsSorted } from '../../../src/components/sessions.js';
 import { openSessionModal } from '../../../src/components/session-modal.js';
 import { bucketTitle, openBucketModal } from '../../../src/components/bucket-modal.js';
 import { sessionSummaries } from '../../../src/core/metrics.js';
 import { entryCost } from '../../../src/core/config.js';
 import { state } from '../../../src/core/state.js';
 import { fmtMoney } from '../../../src/core/utils.js';
-import { click, flush, mountPanel } from '../../helpers/dom.js';
-import { fixtureDurations, fixtureEntries, makeEntry } from '../../helpers/fixtures.js';
+import { cell } from '../../../src/ui/table.js';
+import { click, flush, input, mountPanel } from '../../helpers/dom.js';
+import { entryCostingAtLeast, fixtureDurations, fixtureEntries, makeEntry } from '../../helpers/fixtures.js';
 
 beforeEach(() => {
   state.markup = 1;
@@ -119,5 +120,198 @@ describe('openBucketModal', () => {
     const box = openBucketModal('2026-10-12', 'weekly', entries);
     const inWeek = entries.filter((e) => e.date >= '2026-10-12' && e.date <= '2026-10-18');
     expect(box.textContent).toContain(fmtMoney(inWeek.reduce((s, e) => s + entryCost(e), 0)));
+  });
+});
+
+const SEARCH = () => [
+  entryCostingAtLeast(EXPENSIVE_COST * 2, { sessionId: 'ab12cd34ef56gh78', cwd: '/work/alpha', entrypoint: 'cli', model: 'claude-opus-999', ts: '2026-10-15T08:00:00.000Z' }),
+  makeEntry({ sessionId: 'hk-session-2', cwd: '/work/beta', entrypoint: 'claude-desktop', model: 'claude-haiku-999', ts: '2026-10-15T09:00:00.000Z' }),
+  makeEntry({ sessionId: 'task-7', cwd: '', sessionKind: 'cowork', entrypoint: 'claude-desktop', model: 'claude-sonnet-999', ts: '2026-10-15T10:00:00.000Z' }),
+];
+
+const chip = (scope, id) => scope.querySelector(`.sub-filter-chip[data-chip="${id}"]`);
+const chipByLabel = (scope, label) => [...scope.querySelectorAll('.sub-filter-chip')].find((b) => b.textContent === label);
+const chipLabels = (scope) => [...scope.querySelectorAll('.sub-filter-chip')].map((b) => b.textContent);
+const firstCells = (scope) => [...scope.querySelectorAll('tbody tr')].map((tr) => tr.children[0].textContent);
+
+function listHost(entries, options = {}) {
+  const panel = mountPanel('models');
+  const host = document.createElement('div');
+  panel.append(host);
+  renderSessionsSubTable(host, entries, options);
+  return host;
+}
+
+describe('sessionFilter', () => {
+  it('offers the type, source, family and expensive chips by default', () => {
+    expect(sessionFilter().chips.map((c) => c.id)).toEqual(['code', 'cowork', 'cli', 'desktop', 'opus', 'sonnet', 'haiku', 'expensive']);
+  });
+
+  it('drops the type chips and the type key when the type column is omitted', () => {
+    const filter = sessionFilter({ omit: ['type'] });
+    expect(filter.chips.map((c) => c.id)).not.toContain('code');
+    expect(filter.chips.map((c) => c.id)).not.toContain('cowork');
+    expect(filter.keys).not.toContain('type');
+    expect(filter.keys).toContain('source');
+  });
+
+  it('drops the family chips and the models key when the models column is omitted', () => {
+    const filter = sessionFilter({ omit: ['models'] });
+    expect(filter.chips.map((c) => c.id)).not.toContain('opus');
+    expect(filter.keys).not.toContain('models');
+  });
+
+  it('keeps only the expensive chip when every optional column is omitted', () => {
+    expect(sessionFilter({ omit: ['type', 'source', 'models'] }).chips.map((c) => c.id)).toEqual(['expensive']);
+  });
+
+  it('searches the name, the session id, the project and the effort unless the effort column is omitted', () => {
+    expect(sessionFilter().keys).toEqual(['name', 'id', 'project', 'type', 'source', 'models', 'effort']);
+    expect(sessionFilter({ omit: ['effort'] }).keys).not.toContain('effort');
+  });
+
+  it('uses the sessions search placeholder', () => {
+    expect(sessionFilter().placeholder).toBe('Search sessions');
+  });
+
+  it('counts a session at exactly EXPENSIVE_COST as expensive and one just below it as not', () => {
+    expect(EXPENSIVE_COST).toBe(1);
+    const expensive = sessionFilter().chips.find((c) => c.id === 'expensive');
+    expect(expensive.test({ cost: cell(EXPENSIVE_COST) })).toBe(true);
+    expect(expensive.test({ cost: cell(EXPENSIVE_COST - 0.01) })).toBe(false);
+  });
+});
+
+describe('session list search and chips', () => {
+  it('finds a session by its id, which the visible name only shortens', () => {
+    const host = listHost(SEARCH());
+    expect(firstCells(host).sort()).toEqual(['ab12cd34', 'hk-sessi', 'task-7']);
+    input(host.querySelector('.sub-filter-input'), 'ef56gh78');
+    expect(firstCells(host)).toEqual(['ab12cd34']);
+  });
+
+  it('finds a session by its project only when the project column is shown', () => {
+    const hidden = listHost(SEARCH());
+    input(hidden.querySelector('.sub-filter-input'), 'beta');
+    expect(hidden.querySelectorAll('tbody tr[data-i]')).toHaveLength(0);
+    expect(hidden.querySelector('tbody').textContent).toBe('No matches');
+
+    const shown = listHost(SEARCH(), { omit: [] });
+    input(shown.querySelector('.sub-filter-input'), 'beta');
+    expect(firstCells(shown)).toEqual(['hk-sessi']);
+  });
+
+  it('shows the type, source, family and expensive chips that match a row', () => {
+    const host = listHost(SEARCH());
+    expect(chipLabels(host)).toEqual(['Code', 'Cowork', 'CLI', 'Desktop app', 'Opus', 'Sonnet', 'Haiku', 'Expensive only']);
+  });
+
+  it('hides the chips that match no row', () => {
+    const host = listHost(SEARCH().filter((e) => e.model === 'claude-haiku-999'));
+    expect(chipLabels(host)).toEqual(['Code', 'Desktop app', 'Haiku']);
+  });
+
+  it('keeps the desktop sessions with the Desktop app chip', () => {
+    const host = listHost(SEARCH());
+    click(chip(host, 'desktop'));
+    expect(firstCells(host)).toEqual(['hk-sessi']);
+  });
+
+  it('keeps the cowork tasks with the Cowork chip', () => {
+    const host = listHost(SEARCH());
+    click(chip(host, 'cowork'));
+    expect(firstCells(host)).toEqual(['task-7']);
+  });
+
+  it('combines the type and the source chips by AND', () => {
+    const host = listHost(SEARCH());
+    click(chip(host, 'cowork'));
+    click(chip(host, 'desktop'));
+    expect(host.querySelector('tbody').textContent).toBe('No matches');
+  });
+
+  it('keeps the sessions at or above a dollar with the Expensive only chip', () => {
+    const host = listHost(SEARCH());
+    click(chipByLabel(host, 'Expensive only'));
+    expect(firstCells(host)).toEqual(['ab12cd34']);
+  });
+
+  it('keeps both families with the Opus and Haiku chips together', () => {
+    const host = listHost(SEARCH());
+    click(chip(host, 'opus'));
+    click(chip(host, 'haiku'));
+    expect(firstCells(host)).toEqual(['ab12cd34', 'hk-sessi']);
+  });
+});
+
+describe('renderAgentBreakdown search and chips', () => {
+  const agentEntries = () => [
+    SEARCH()[0],
+    makeEntry({ sessionId: 'ab12cd34ef56gh78', cwd: '/work/alpha', model: 'claude-haiku-999', agentType: 'Explore' }),
+  ];
+
+  it('offers the family chips of the model in each agent row', () => {
+    const host = document.createElement('div');
+    mountPanel('sessions').append(host);
+    renderAgentBreakdown(host, agentEntries());
+    expect(firstCells(host)).toHaveLength(2);
+    expect(chipLabels(host)).toEqual(['Opus', 'Haiku']);
+    click(chip(host, 'haiku'));
+    expect(firstCells(host)).toEqual(['Explore']);
+  });
+
+  it('searches the agent names', () => {
+    const host = document.createElement('div');
+    mountPanel('sessions').append(host);
+    renderAgentBreakdown(host, agentEntries());
+    input(host.querySelector('.sub-filter-input'), 'explore');
+    expect(firstCells(host)).toEqual(['Explore']);
+  });
+});
+
+describe('session modal search and chips', () => {
+  it('searches the models of a session and combines the query with a family chip', () => {
+    const entries = [
+      makeEntry({ sessionId: 'mix-1', model: 'claude-opus-999' }),
+      makeEntry({ sessionId: 'mix-1', model: 'claude-haiku-999' }),
+    ];
+    const box = openSessionModal('mix-1', entries, []);
+    const models = box.querySelector('[data-host="models"]');
+    expect(firstCells(models)).toHaveLength(2);
+    expect(models.querySelector('.sub-filter-input').placeholder).toBe('Search models');
+    input(models.querySelector('.sub-filter-input'), 'haiku');
+    expect(firstCells(models)).toEqual(['haiku']);
+    click(chipByLabel(models, 'Opus'));
+    expect(models.querySelector('tbody').textContent).toBe('No matches');
+  });
+
+  it('searches the agent types of the modal but offers no chips there', () => {
+    const entries = [
+      makeEntry({ sessionId: 'mix-2', model: 'claude-opus-999' }),
+      makeEntry({ sessionId: 'mix-2', model: 'claude-haiku-999', agentType: 'Explore' }),
+    ];
+    const box = openSessionModal('mix-2', entries, []);
+    const agents = box.querySelector('[data-host="agents"]');
+    expect(agents.querySelector('.sub-filter-chip')).toBeNull();
+    expect(agents.querySelector('.sub-filter-input').placeholder).toBe('Search agents');
+    input(agents.querySelector('.sub-filter-input'), 'explore');
+    expect(firstCells(agents)).toEqual(['Explore']);
+  });
+});
+
+describe('bucket modal search and chips', () => {
+  it('offers the source and expensive chips but no type or family chips', () => {
+    const box = openBucketModal('2026-10-15', 'daily', SEARCH());
+    expect(chipLabels(box.querySelector('[data-host="sessions"]'))).toEqual(['CLI', 'Desktop app', 'Expensive only']);
+  });
+
+  it('filters the sessions of the bucket by source and searches them by id', () => {
+    const box = openBucketModal('2026-10-15', 'daily', SEARCH());
+    const host = box.querySelector('[data-host="sessions"]');
+    click(chipByLabel(host, 'Desktop app'));
+    expect(firstCells(host)).toEqual(['hk-sessi']);
+    input(host.querySelector('.sub-filter-input'), 'task-7');
+    expect(host.querySelectorAll('tbody tr[data-i]')).toHaveLength(0);
+    expect(host.querySelector('tbody').textContent).toBe('No matches');
   });
 });
