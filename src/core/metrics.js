@@ -31,7 +31,13 @@ export function inRange(entries, { from = '', to = '' } = {}) {
 export function bucketKeyOf(date, view) {
   if (view === 'weekly') return getWeekKey(date);
   if (view === 'monthly') return getMonthKey(date);
+  if (view === 'quarterly') return quarterKeyOf(getMonthKey(date));
   return date;
+}
+
+function quarterKeyOf(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${y}-Q${Math.ceil(m / 3)}`;
 }
 
 function emptyAcc() {
@@ -73,6 +79,11 @@ function nextBucketKey(key, view) {
     const next = new Date(Date.UTC(y, m, 1));
     return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
   }
+  if (view === 'quarterly') {
+    const [y, q] = key.split('-Q').map(Number);
+    const next = new Date(Date.UTC(y, (q - 1) * 3 + 3, 1));
+    return quarterKeyOf(`${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
   return shiftDay(key, 1);
 }
 
@@ -109,6 +120,39 @@ export function bucketize(entries, { from = '', to = '', view = 'daily', markup 
   const byKey = new Map();
   for (const [k, acc] of accs) byKey.set(k, finishAcc(acc, markup));
   return { keys, byKey };
+}
+
+const meanOf = (buckets) => {
+  const count = buckets.length;
+  const series = buckets.map((b) => b.final);
+  if (count === 0) return { cost: 0, tokens: 0, count: 0, series };
+  let cost = 0;
+  let tokens = 0;
+  for (const b of buckets) {
+    cost += b.final;
+    tokens += b.tokens;
+  }
+  return { cost: cost / count, tokens: tokens / count, count, series };
+};
+
+export function averageByPeriod(entries, { from = '', to = '', markup = 1 } = {}) {
+  const periodBuckets = (view) => {
+    const { keys, byKey } = bucketize(entries, { from, to, view, markup });
+    return keys.map((k) => byKey.get(k));
+  };
+  const quarterly = bucketize(entries, { from, to, view: 'quarterly', markup });
+  const quarters = [1, 2, 3, 4].map((q) => {
+    const suffix = `-Q${q}`;
+    const buckets = quarterly.keys.filter((k) => k.endsWith(suffix)).map((k) => quarterly.byKey.get(k));
+    return { q, ...meanOf(buckets) };
+  });
+  return {
+    quarter: meanOf(quarterly.keys.map((k) => quarterly.byKey.get(k))),
+    month: meanOf(periodBuckets('monthly')),
+    week: meanOf(periodBuckets('weekly')),
+    day: meanOf(periodBuckets('daily')),
+    quarters,
+  };
 }
 
 export function groupTotals(entries, keyFn, markup = 1) {

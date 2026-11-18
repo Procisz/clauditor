@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bucketize, bucketKeyOf, cacheHitRate, cacheSavings, costByTokenType, groupTotals, histogram, hourWeekdayMatrix,
+  averageByPeriod, bucketize, bucketKeyOf, cacheHitRate, cacheSavings, costByTokenType, groupTotals, histogram, hourWeekdayMatrix,
   hourly, inRange, monthForecast, pctChange, previousRange, sessionSummaries, totals, weekdayAverages,
 } from '../../../src/core/metrics.js';
 import { entryCost, entryCostByType } from '../../../src/core/config.js';
@@ -375,5 +375,198 @@ describe('sessionSummaries', () => {
   it('applies the markup to final costs', () => {
     const doubled = sessionSummaries(entries, 2).find((s) => s.sessionId === 'cli');
     expect(doubled.final).toBeCloseTo(byId.cli.base * 2, 12);
+  });
+});
+
+describe('quarterly bucketKeyOf and bucketize', () => {
+  it('maps each month to its calendar quarter', () => {
+    expect(bucketKeyOf('2026-01-31', 'quarterly')).toBe('2026-Q1');
+    expect(bucketKeyOf('2026-03-31', 'quarterly')).toBe('2026-Q1');
+    expect(bucketKeyOf('2026-04-01', 'quarterly')).toBe('2026-Q2');
+    expect(bucketKeyOf('2026-06-30', 'quarterly')).toBe('2026-Q2');
+    expect(bucketKeyOf('2026-07-01', 'quarterly')).toBe('2026-Q3');
+    expect(bucketKeyOf('2026-10-15', 'quarterly')).toBe('2026-Q4');
+    expect(bucketKeyOf('2026-12-31', 'quarterly')).toBe('2026-Q4');
+  });
+
+  it('rolls the quarter over the year edge', () => {
+    const { keys } = bucketize([], { from: '2026-11-01', to: '2027-02-28', view: 'quarterly' });
+    expect(keys).toEqual(['2026-Q4', '2027-Q1']);
+  });
+
+  it('zero-fills quarters without entries and sums the others', () => {
+    const entries = [
+      makeEntry({ ts: '2026-05-10T10:00:00Z', input: 1000, output: 0 }),
+      makeEntry({ ts: '2026-12-02T10:00:00Z', input: 300, output: 200 }),
+    ];
+    const { keys, byKey } = bucketize(entries, { from: '2026-05-01', to: '2026-12-31', view: 'quarterly' });
+    expect(keys).toEqual(['2026-Q2', '2026-Q3', '2026-Q4']);
+    expect(byKey.get('2026-Q2')).toMatchObject({ requests: 1, tokens: 1000 });
+    expect(byKey.get('2026-Q3')).toMatchObject({ requests: 0, final: 0, tokens: 0 });
+    expect(byKey.get('2026-Q4')).toMatchObject({ requests: 1, tokens: 500 });
+  });
+});
+
+describe('averageByPeriod', () => {
+  const A = makeEntry({ ts: '2026-09-20T10:00:00Z', input: 1000, output: 500 });
+  const B = makeEntry({ ts: '2026-10-05T10:00:00Z', input: 2000, output: 500 });
+  const C = makeEntry({ ts: '2026-10-06T10:00:00Z', input: 500, output: 0 });
+  const entries = [A, B, C];
+  const range = { from: '2026-09-15', to: '2026-11-10' };
+  const costA = entryCost(A);
+  const costBC = entryCost(B) + entryCost(C);
+  const total = costA + costBC;
+
+  it('averages month, week and day buckets over the whole range, empty buckets as zero', () => {
+    const result = averageByPeriod(entries, { ...range, markup: 1 });
+    expect(result.month.count).toBe(3);
+    expect(result.month.cost).toBeCloseTo(total / 3, 12);
+    expect(result.month.tokens).toBe(1500);
+    expect(result.week.count).toBe(9);
+    expect(result.week.cost).toBeCloseTo(total / 9, 12);
+    expect(result.week.tokens).toBe(500);
+    expect(result.day.count).toBe(57);
+    expect(result.day.cost).toBeCloseTo(total / 57, 12);
+    expect(result.day.tokens).toBeCloseTo(4500 / 57, 9);
+  });
+
+  it('averages the quarter card over every quarter of the range', () => {
+    const { quarter } = averageByPeriod(entries, range);
+    expect(quarter.count).toBe(2);
+    expect(quarter.cost).toBeCloseTo(total / 2, 12);
+    expect(quarter.tokens).toBe(2250);
+  });
+
+  it('lists Q1 to Q4 with zeros for quarters outside the range', () => {
+    const { quarters } = averageByPeriod(entries, range);
+    expect(quarters).toHaveLength(4);
+    expect(quarters[0]).toEqual({ q: 1, cost: 0, tokens: 0, count: 0, series: [] });
+    expect(quarters[1]).toEqual({ q: 2, cost: 0, tokens: 0, count: 0, series: [] });
+    expect(quarters[2].q).toBe(3);
+    expect(quarters[2].count).toBe(1);
+    expect(quarters[2].cost).toBeCloseTo(costA, 12);
+    expect(quarters[2].tokens).toBe(1500);
+    expect(quarters[3].q).toBe(4);
+    expect(quarters[3].count).toBe(1);
+    expect(quarters[3].cost).toBeCloseTo(costBC, 12);
+    expect(quarters[3].tokens).toBe(3000);
+  });
+
+  it('averages quarters of different years with the same number together', () => {
+    const may2026 = makeEntry({ ts: '2026-05-10T10:00:00Z', input: 600, output: 400 });
+    const may2027 = makeEntry({ ts: '2027-05-10T10:00:00Z', input: 2000, output: 1000 });
+    const { quarters, quarter } = averageByPeriod([may2026, may2027], { from: '2026-04-01', to: '2027-06-30' });
+    expect(quarters[1]).toMatchObject({ q: 2, count: 2, tokens: 2000 });
+    expect(quarters[1].cost).toBeCloseTo((entryCost(may2026) + entryCost(may2027)) / 2, 12);
+    expect(quarters[0]).toMatchObject({ q: 1, count: 1, tokens: 0, cost: 0 });
+    expect(quarter.count).toBe(5);
+    expect(quarter.tokens).toBe(800);
+  });
+
+  it('applies the markup to every cost', () => {
+    const plain = averageByPeriod(entries, range);
+    const doubled = averageByPeriod(entries, { ...range, markup: 2 });
+    expect(doubled.quarter.cost).toBeCloseTo(plain.quarter.cost * 2, 12);
+    expect(doubled.day.cost).toBeCloseTo(plain.day.cost * 2, 12);
+    expect(doubled.quarter.tokens).toBe(plain.quarter.tokens);
+  });
+
+  it('gives zeros for no entries and no bounds', () => {
+    const zero = { cost: 0, tokens: 0, count: 0, series: [] };
+    const result = averageByPeriod([]);
+    expect(result).toEqual({
+      quarter: zero,
+      month: zero,
+      week: zero,
+      day: zero,
+      quarters: [1, 2, 3, 4].map((q) => ({ q, ...zero })),
+    });
+  });
+
+  it('counts the empty buckets of a range with no entries as zero', () => {
+    const result = averageByPeriod([], range);
+    expect(result.month).toEqual({ cost: 0, tokens: 0, count: 3, series: [0, 0, 0] });
+    expect(result.quarter).toEqual({ cost: 0, tokens: 0, count: 2, series: [0, 0] });
+  });
+
+  it('gives zeros for a reversed range', () => {
+    const result = averageByPeriod(entries, { from: '2026-11-10', to: '2026-09-15' });
+    expect(result.day).toEqual({ cost: 0, tokens: 0, count: 0, series: [] });
+    expect(result.quarter).toEqual({ cost: 0, tokens: 0, count: 0, series: [] });
+  });
+
+  it('uses the entry bounds when the range is empty', () => {
+    const result = averageByPeriod(entries);
+    expect(result.month.count).toBe(2);
+    expect(result.week.count).toBe(4);
+    expect(result.day.count).toBe(17);
+    expect(result.quarter.count).toBe(2);
+    expect(result.month.tokens).toBe(2250);
+  });
+
+  it('gives one bucket of each size for a single day', () => {
+    const result = averageByPeriod([A], { from: '2026-09-20', to: '2026-09-20' });
+    expect(result.day).toEqual({ cost: costA, tokens: 1500, count: 1, series: [costA] });
+    expect(result.week).toEqual({ cost: costA, tokens: 1500, count: 1, series: [costA] });
+    expect(result.month).toEqual({ cost: costA, tokens: 1500, count: 1, series: [costA] });
+    expect(result.quarter).toEqual({ cost: costA, tokens: 1500, count: 1, series: [costA] });
+  });
+
+  it('gives the series of per-bucket final cost for the month, quarter and week cards', () => {
+    const result = averageByPeriod(entries, range);
+    expect(result.month.series).toHaveLength(result.month.count);
+    expect(result.month.series).toHaveLength(3);
+    expect(result.month.series[0]).toBeCloseTo(costA, 12);
+    expect(result.month.series[1]).toBeCloseTo(costBC, 12);
+    expect(result.month.series[2]).toBe(0);
+    expect(result.quarter.series).toHaveLength(result.quarter.count);
+    expect(result.quarter.series[0]).toBeCloseTo(costA, 12);
+    expect(result.quarter.series[1]).toBeCloseTo(costBC, 12);
+    expect(result.week.series).toHaveLength(result.week.count);
+    expect(result.week.series.reduce((sum, value) => sum + value, 0)).toBeCloseTo(total, 12);
+  });
+
+  it('gives one day series value per day of the range, in day order', () => {
+    const result = averageByPeriod(entries, range);
+    expect(result.day.series).toHaveLength(result.day.count);
+    expect(result.day.series).toHaveLength(57);
+    expect(result.day.series[5]).toBeCloseTo(costA, 12);
+    expect(result.day.series[20]).toBeCloseTo(entryCost(B), 12);
+    expect(result.day.series[21]).toBeCloseTo(entryCost(C), 12);
+    expect(result.day.series[0]).toBe(0);
+    expect(result.day.series.reduce((sum, value) => sum + value, 0)).toBeCloseTo(total, 12);
+  });
+
+  it('gives the series of each quarter in the list, empty for quarters outside the range', () => {
+    const { quarters } = averageByPeriod(entries, range);
+    expect(quarters[0].series).toEqual([]);
+    expect(quarters[1].series).toEqual([]);
+    expect(quarters[2].series).toHaveLength(quarters[2].count);
+    expect(quarters[2].series[0]).toBeCloseTo(costA, 12);
+    expect(quarters[3].series).toHaveLength(quarters[3].count);
+    expect(quarters[3].series[0]).toBeCloseTo(costBC, 12);
+  });
+
+  it('gives the series of the same quarter number across years, one value per bucket', () => {
+    const may2026 = makeEntry({ ts: '2026-05-10T10:00:00Z', input: 600, output: 400 });
+    const may2027 = makeEntry({ ts: '2027-05-10T10:00:00Z', input: 2000, output: 1000 });
+    const { quarters } = averageByPeriod([may2026, may2027], { from: '2026-04-01', to: '2027-06-30' });
+    expect(quarters[1].series).toEqual([entryCost(may2026), entryCost(may2027)]);
+  });
+
+  it('applies the markup to every series value', () => {
+    const plain = averageByPeriod(entries, range);
+    const doubled = averageByPeriod(entries, { ...range, markup: 2 });
+    expect(doubled.month.series[0]).toBeCloseTo(plain.month.series[0] * 2, 12);
+    expect(doubled.month.series[1]).toBeCloseTo(plain.month.series[1] * 2, 12);
+    expect(doubled.day.series[20]).toBeCloseTo(plain.day.series[20] * 2, 12);
+    expect(doubled.quarters[3].series[0]).toBeCloseTo(plain.quarters[3].series[0] * 2, 12);
+  });
+
+  it('gives one zero series value for an empty single-day range and an empty series without bounds', () => {
+    const result = averageByPeriod([], { from: '2026-09-15', to: '2026-09-15' });
+    expect(result.day.series).toEqual([0]);
+    expect(result.quarter.series).toEqual([0]);
+    expect(averageByPeriod([]).month.series).toEqual([]);
   });
 });

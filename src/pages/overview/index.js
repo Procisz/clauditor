@@ -3,6 +3,7 @@ import { t } from '../../i18n/index.js';
 import { chartCard, esc } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import { budgetStrip, wireBudget } from './budget.js';
+import { averageCard, renderAverage } from './averages.js';
 import { renderCalendar, renderHourWeekday } from './heat.js';
 import { kpiCards } from './kpis.js';
 import { renderCostTrend, renderModelMix, renderTokenTrend, renderTopProjects } from './trends.js';
@@ -41,13 +42,15 @@ export default {
       sub: esc(t(`overview.${card.key}Sub`)),
     })).join('');
     mount.innerHTML = `${noteHtml()}
-      <div class="kpi-row">${kpiCards(ctx)}</div>
+      <div class="kpi-row kpi-row-5">${kpiCards(ctx)}</div>
       <div class="grid12">
+        ${averageCard()}
         <div data-span="12">${budgetStrip(ctx)}</div>
         ${cards}
       </div>`;
     initDismissableNote('estimate-note', NOTE_KEY);
     wireBudget(mount);
+    renderAverage(mount.querySelector('#ov-average'), ctx);
     for (const card of CARDS) card.render(mount.querySelector(`#${card.id}`), ctx);
   },
 };

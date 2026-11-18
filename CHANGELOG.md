@@ -68,6 +68,7 @@ All notable changes to Clauditor are documented here.
 - The period row opens and closes with a short slide and fade animation when the filter button is pressed (skipped with reduced motion)
 - "All data" is now the first quick period button, and it is disabled (faded) while the full period is shown
 - **Search and quick filters on every table.** Each table and expandable session list has a search box over its names, projects, models, titles, session ids and month labels (never the numbers), and quick filter chips: Type (Code, Cowork), Source (Desktop app, CLI), model family (Opus, Sonnet, Haiku), Expensive only (final cost of $1 or more), and Cost up or Cost down on Monthly totals. Search and chips combine; the labels are in English and Hungarian
+- One big average cost card on Overview, above the budget strip: a dropdown picks per session, quarter, month, week or day (saved as `clauditor_average_type`, default per month), and the card shows the average final cost, the average token usage, a change against the previous period and a cost chart per period. The quarter choice also lists Q1 to Q4 (quarters with data only). The card follows the selected range, and the top KPI row keeps five cards: cost, requests, sessions, tokens and cache hit rate
 
 ### ♻️ Refactoring
 - Comment-free codebase (owner preference: invariants documented in CLAUDE.md); dead code removed

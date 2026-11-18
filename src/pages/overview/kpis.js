@@ -5,7 +5,6 @@ import { deltaChip, esc, statCard } from '../../ui/dom.js';
 import { sparkline } from '../../ui/charts.js';
 
 const rateText = (rate) => (rate == null ? '-' : `${fmtFixed(rate * 100, 1)}%`);
-const averageCost = (sum) => (sum.sessions > 0 ? sum.final / sum.sessions : 0);
 
 export function kpiDefinitions() {
   return [
@@ -29,12 +28,24 @@ export function kpiDefinitions() {
       id: 'cacheHit', color: 'var(--c-cache-read)', iconId: 'i-archive', goodWhenDown: false,
       pick: (s) => cacheHitRate(s), show: rateText,
     },
-    {
-      id: 'avgSession', color: 'var(--c-cache-write)', iconId: 'i-models', goodWhenDown: true,
-      pick: averageCost, show: (v) => fmtMoney(v),
-    },
   ];
 }
+
+const card = ({ color, iconId, goodWhenDown, label, tip, value, prior, show, series }, hasPrevious) => {
+  const change = value != null && prior != null ? pctChange(value, prior) : null;
+  const previousFoot = hasPrevious
+    ? `${deltaChip(change, { goodWhenDown })}<span>${esc(t('overview.previous', { value: show(prior) }))}</span>`
+    : '';
+  return statCard({
+    color,
+    iconId,
+    label,
+    tip,
+    value: esc(show(value)),
+    foot: previousFoot,
+    spark: sparkline(series),
+  });
+};
 
 export function kpiCards(ctx) {
   const { entries, previous, markup, range } = ctx;
@@ -44,21 +55,16 @@ export function kpiCards(ctx) {
   const { keys, byKey } = bucketize(entries, { from: range.from, to: range.to, view: range.view, markup });
   const buckets = keys.map((key) => byKey.get(key));
 
-  return kpiDefinitions().map((def) => {
-    const value = def.pick(current);
-    const prior = before ? def.pick(before) : null;
-    const change = value != null && prior != null ? pctChange(value, prior) : null;
-    const foot = before
-      ? `${deltaChip(change, { goodWhenDown: def.goodWhenDown })}<span>${esc(t('overview.previous', { value: def.show(prior) }))}</span>`
-      : '';
-    return statCard({
-      color: def.color,
-      iconId: def.iconId,
-      label: t(`overview.kpi.${def.id}`),
-      tip: t(`overview.kpi.${def.id}Tip`),
-      value: esc(def.show(value)),
-      foot,
-      spark: sparkline(buckets.map(def.pick)),
-    });
-  }).join('');
+  const kpis = kpiDefinitions().map((def) => ({
+    color: def.color,
+    iconId: def.iconId,
+    goodWhenDown: def.goodWhenDown,
+    label: t(`overview.kpi.${def.id}`),
+    tip: t(`overview.kpi.${def.id}Tip`),
+    value: def.pick(current),
+    prior: before ? def.pick(before) : null,
+    show: def.show,
+    series: buckets.map(def.pick),
+  }));
+  return kpis.map((def) => card(def, hasPrevious)).join('');
 }

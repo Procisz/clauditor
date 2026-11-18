@@ -212,6 +212,7 @@ flowchart TD
 | Language (`en` or `hu`, default `en`) | localStorage | `clauditor_lang` |
 | Table page sizes (JSON map) | localStorage | `clauditor_table_rows` |
 | Page width (`narrow`, `normal`, `wide`, `full`, default `normal`) | localStorage | `clauditor_width` |
+| Overview average type (`session`, `quarter`, `month`, `week`, `day`, default `month`) | localStorage | `clauditor_average_type` |
 | Thousands separator, decimal separator, decimal places | localStorage | `clauditor_thousands_sep`, `clauditor_decimal_sep`, `clauditor_money_decimals` |
 | Date-from reset step | localStorage | `clauditor_datefrom_reset` |
 | Open settings tab | sessionStorage | `clauditor_settings_tab` |

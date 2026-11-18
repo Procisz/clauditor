@@ -189,6 +189,10 @@
   gap: var(--grid-gap);
   margin-bottom: var(--grid-gap);
 }
+.kpi-row-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) {
+  .kpi-row-5 { grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); }
+}
 
 .grid12 {
   display: grid;

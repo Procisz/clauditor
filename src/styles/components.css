@@ -104,6 +104,46 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.avg-quarters {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.avg-quarter {
+  font-variant-numeric: tabular-nums;
+}
+.avg-tokens {
+  flex-basis: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.avg-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.avg-label {
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+.avg-cost {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--title-tracking);
+}
+.avg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+.avg-chart {
+  margin-top: var(--space-3);
+}
 .spark {
   width: 110px;
   height: 30px;
