@@ -1,6 +1,7 @@
 export default {
   en: {
     'models.tableTitle': 'Model breakdown',
+    'models.searchPlaceholder': 'Search models',
     'models.tableTip': 'Usage and cost of every model in the selected period.\nFinal cost is the base cost times the markup from Settings.\nClick a row to see the sessions that used the model.',
     'models.col.sessions': 'Sessions',
     'models.col.input': 'Input',
@@ -33,6 +34,7 @@ export default {
   },
   hu: {
     'models.tableTitle': 'Modellek bontása',
+    'models.searchPlaceholder': 'Modellek keresése',
     'models.tableTip': 'Minden modell használata és költsége a kiválasztott időszakban.\nA végső költség az alapköltség a Beállításokban megadott felárral szorozva.\nKattints egy sorra, hogy lásd a modellt használó munkameneteket.',
     'models.col.sessions': 'Munkamenetek',
     'models.col.input': 'Bemenet',

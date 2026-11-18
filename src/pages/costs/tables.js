@@ -30,6 +30,14 @@ export function monthlyTable({ allEntries, markup }) {
     ],
     rows,
     pageSize: 5,
-    defaultSort: { key: 'cost', dir: 'desc' },
+    defaultSort: { key: 'month', dir: 'desc' },
+    filter: {
+      keys: ['month'],
+      placeholder: t('costs.searchPlaceholder'),
+      chips: [
+        { id: 'rising', label: t('costs.filter.rising'), group: 'change', test: (row) => row.change.v > 0 },
+        { id: 'falling', label: t('costs.filter.falling'), group: 'change', test: (row) => row.change.v < 0 },
+      ],
+    },
   });
 }

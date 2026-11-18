@@ -1,9 +1,9 @@
 import { state } from '../../core/state.js';
 import { fmtInt, fmtMoney, fmtNum, projectKey, projectName } from '../../core/utils.js';
-import { esc } from '../../ui/dom.js';
+import { esc, modelTone } from '../../ui/dom.js';
 import { cell, dataTable } from '../../ui/table.js';
 import { t, getLocale } from '../../i18n/index.js';
-import { renderSessionsSubTable } from '../../components/sessions.js';
+import { familyChips, renderSessionsSubTable } from '../../components/sessions.js';
 import { groupEntries } from '../models/helpers.js';
 import { isCowork, projectTip } from './data.js';
 
@@ -19,11 +19,12 @@ function typeCell(key) {
   return cell(kind, `<span class="badge"${kind === 'cowork' ? ' data-tone="info"' : ''}>${esc(t(`components.type.${kind}`))}</span>`);
 }
 
-export function projectRows(stats) {
+export function projectRows(stats, byProject = new Map()) {
   return stats.map((g) => ({
     rowKey: g.key,
     name: cell(projectName(g.key), `<span class="trunc" title="${esc(projectTip(g.key))}">${esc(projectName(g.key))}</span>`),
     type: typeCell(g.key),
+    families: cell([...new Set((byProject.get(g.key) ?? []).map((e) => modelTone(e.model)))].join(' ')),
     sessions: cell(g.sessions, esc(fmtInt(g.sessions))),
     requests: cell(g.requests, esc(fmtInt(g.requests))),
     tokens: cell(g.tokens, esc(fmtNum(g.tokens))),
@@ -51,9 +52,18 @@ export function projectsTable(ctx, stats) {
       { key: 'last', label: t('projects.col.lastActive') },
       { key: 'cost', label: t('components.col.cost'), num: true },
     ],
-    rows: projectRows(stats),
+    rows: projectRows(stats, byProject),
     pageSize: 10,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: {
+      keys: ['name', 'type'],
+      placeholder: t('projects.searchPlaceholder'),
+      chips: [
+        { id: 'code', label: t('components.type.code'), group: 'type', test: (row) => row.type.v === 'code' },
+        { id: 'cowork', label: t('components.type.cowork'), group: 'type', test: (row) => row.type.v === 'cowork' },
+        ...familyChips((row) => row.families.v.split(' ')),
+      ],
+    },
     expand: {
       key: (row) => row.rowKey,
       defaultOpen: [...open],

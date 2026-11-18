@@ -2,11 +2,11 @@ import { state } from '../core/state.js';
 import { entryCost } from '../core/config.js';
 import { sessionSummaries } from '../core/metrics.js';
 import { sessionName, projectName, shortPath, fmtDuration, fmtNum, fmtInt, fmtFixed, fmtMoney, cacheWriteSplitTitle } from '../core/utils.js';
-import { esc, modelBadge } from '../ui/dom.js';
+import { esc, modelBadge, modelTone } from '../ui/dom.js';
 import { openModal, modalSection, modalStat, modalStatRow, modalBar, modalMeta, modalBadge } from '../ui/modal.js';
 import { cell, subTable } from '../ui/table.js';
 import { t, tn, getLocale } from '../i18n/index.js';
-import { effortBadge, effortsSorted, agentLabel } from './sessions.js';
+import { effortBadge, effortsSorted, agentLabel, familyChips } from './sessions.js';
 
 function dateTimeText(ts) {
   const d = ts ? new Date(ts) : null;
@@ -31,6 +31,11 @@ function modelsTable(host, summary) {
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: {
+      keys: ['model'],
+      placeholder: t('components.search.models'),
+      chips: familyChips((row) => [modelTone(row.model.v)]),
+    },
   });
 }
 
@@ -51,6 +56,7 @@ function agentsTable(host, summary) {
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: { keys: ['agent'], placeholder: t('components.search.agents') },
   });
 }
 

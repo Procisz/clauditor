@@ -1,11 +1,9 @@
 import { sessionName, fmtInt, fmtNum, fmtMoney } from '../../core/utils.js';
-import { agentLabel, renderAgentBreakdown, sessionColumns, sessionRows } from '../../components/sessions.js';
+import { agentLabel, renderAgentBreakdown, sessionColumns, sessionFilter, sessionRows } from '../../components/sessions.js';
 import { esc } from '../../ui/dom.js';
 import { cell, dataTable } from '../../ui/table.js';
 import { t } from '../../i18n/index.js';
 import { entriesBySession } from './data.js';
-
-const SEARCH_KEYS = ['name', 'project', 'type', 'source', 'models', 'effort'];
 
 function openCell(summary) {
   if (!summary.sessionId) return cell('', '-');
@@ -26,7 +24,7 @@ export function sessionsTable({ summaries, entries, markup }) {
     rows,
     pageSize: 10,
     defaultSort: { key: 'cost', dir: 'desc' },
-    filter: { keys: SEARCH_KEYS, placeholder: t('sessions.searchPlaceholder') },
+    filter: { ...sessionFilter(), placeholder: t('sessions.searchPlaceholder') },
     expand: {
       key: (row) => row.sessionId,
       render: (row, host) => renderAgentBreakdown(host, bySession.get(row.sessionId) ?? [], { markup }),
@@ -61,5 +59,6 @@ export function agentTypesTable(agentTotals) {
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: { keys: ['type'], placeholder: t('sessions.agentSearchPlaceholder') },
   });
 }

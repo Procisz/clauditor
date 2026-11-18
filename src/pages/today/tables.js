@@ -1,11 +1,17 @@
 import { groupTotals, sessionSummaries } from '../../core/metrics.js';
 import { fmtInt, fmtMoney, fmtNum, projectKey, projectName, sessionName, shortPath } from '../../core/utils.js';
-import { renderAgentBreakdown, sessionColumns, sessionRows } from '../../components/sessions.js';
-import { esc } from '../../ui/dom.js';
+import { familyChips, renderAgentBreakdown, sessionColumns, sessionFilter, sessionRows } from '../../components/sessions.js';
+import { esc, modelTone } from '../../ui/dom.js';
 import { cell, dataTable } from '../../ui/table.js';
 import { t, tn } from '../../i18n/index.js';
+import { groupEntries } from '../models/helpers.js';
 
 const SESSION_OMIT = ['type', 'source'];
+
+function projectKind(key) {
+  if (key === '(unknown)') return '';
+  return key.startsWith('cowork:') ? 'cowork' : 'code';
+}
 
 export function sessionsTable(entries, markup) {
   const summaries = sessionSummaries(entries, markup);
@@ -32,6 +38,7 @@ export function sessionsTable(entries, markup) {
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: { ...sessionFilter({ omit: SESSION_OMIT }), placeholder: t('today.sessions.searchPlaceholder') },
     expand: {
       key: (row) => row.sessionId || '(unknown)',
       render: (row, host) => renderAgentBreakdown(host, bySession.get(row.sessionId) ?? [], { markup }),
@@ -41,11 +48,15 @@ export function sessionsTable(entries, markup) {
 
 export function projectsTable(entries, markup) {
   const groups = groupTotals(entries, projectKey, markup);
+  const byProject = groupEntries(entries, projectKey);
   const rows = groups.map((g) => {
     const name = projectName(g.key);
     const tip = g.key.startsWith('cowork:') || g.key === '(unknown)' ? name : shortPath(g.key);
+    const families = [...new Set((byProject.get(g.key) ?? []).map((e) => modelTone(e.model)))];
     return {
       name: cell(name, `<span class="trunc" title="${esc(tip)}">${esc(name)}</span>`),
+      kind: cell(projectKind(g.key)),
+      families: cell(families.join(' ')),
       sessions: cell(g.sessions, esc(fmtInt(g.sessions))),
       requests: cell(g.requests, esc(fmtInt(g.requests))),
       tokens: cell(g.tokens, esc(fmtNum(g.tokens))),
@@ -67,5 +78,14 @@ export function projectsTable(entries, markup) {
     rows,
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
+    filter: {
+      keys: ['name'],
+      placeholder: t('today.projects.searchPlaceholder'),
+      chips: [
+        { id: 'code', label: t('components.type.code'), group: 'type', test: (row) => row.kind.v === 'code' },
+        { id: 'cowork', label: t('components.type.cowork'), group: 'type', test: (row) => row.kind.v === 'cowork' },
+        ...familyChips((row) => row.families.v.split(' ')),
+      ],
+    },
   });
 }

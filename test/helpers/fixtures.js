@@ -1,9 +1,18 @@
 import { dayKey } from '../../src/core/dates.js';
+import { entryCost } from '../../src/core/config.js';
 
 export const PRICED_MODEL = 'claude-opus-999';
 export const LOCAL_MODEL = 'gpt-oss:20b';
 
 let counter = 0;
+
+export function entryCostingAtLeast(dollars, overrides = {}) {
+  for (let input = 1_000_000; input <= 1e12; input *= 2) {
+    const entry = makeEntry({ ...overrides, input, output: 0, cacheWrite: 0, cacheWrite1h: 0, cacheRead: 0 });
+    if (entryCost(entry) >= dollars) return entry;
+  }
+  throw new Error(`No input size prices an entry at ${dollars} dollars for model ${overrides.model ?? PRICED_MODEL}`);
+}
 
 export function makeEntry(overrides = {}) {
   const ts = overrides.ts ?? '2026-10-15T08:30:00.000Z';

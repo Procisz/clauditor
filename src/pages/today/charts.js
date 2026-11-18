@@ -75,6 +75,8 @@ export function renderCumulative(root, { currentPoints, previousPoints }) {
   if (two) attachLegend(chart, { items: seriesItems(names, ['var(--c-cost)', 'var(--c-prev)']) });
 }
 
+const shareText = (value, total) => `${fmtFixed(total > 0 ? (value / total) * 100 : 0, 2)}%`;
+
 function donutOptions({ labels, data, colors, totalLabel, format, valueFormat, tipFormat = valueFormat }) {
   const sum = data.reduce((a, b) => a + b, 0);
   return {
@@ -101,7 +103,7 @@ function donutOptions({ labels, data, colors, totalLabel, format, valueFormat, t
         },
       },
     },
-    tooltip: { y: { formatter: (v) => tipFormat(v) } },
+    tooltip: { y: { formatter: (v) => `${tipFormat(v)} (${shareText(v, sum)})` } },
     legend: { show: false },
   };
 }
@@ -110,7 +112,7 @@ function attachSlices(chart, labels, data, colors) {
   const sum = data.reduce((a, b) => a + b, 0);
   if (labels.length < 2 || sum <= 0) return;
   attachLegend(chart, {
-    items: seriesItems(labels, colors),
+    items: seriesItems(labels.map((label, i) => `${label}: ${shareText(data[i], sum)}`), colors),
     apply: sliceApply({ labels, data, colors }),
   });
 }

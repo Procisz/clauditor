@@ -104,6 +104,46 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.avg-quarters {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.avg-quarter {
+  font-variant-numeric: tabular-nums;
+}
+.avg-tokens {
+  flex-basis: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.avg-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.avg-label {
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+.avg-cost {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--title-tracking);
+}
+.avg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+.avg-chart {
+  margin-top: var(--space-3);
+}
 .spark {
   width: 110px;
   height: 30px;
@@ -340,6 +380,37 @@ table.tbl {
 .sub-filter-clear svg {
   width: 13px;
   height: 13px;
+}
+.sub-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sub-filter-chip {
+  padding: 2px 10px;
+  font: inherit;
+  font-size: var(--fs-note);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--chip-radius);
+  white-space: nowrap;
+}
+.sub-filter-chip:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.sub-filter-chip[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.sub-filter-chip:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .sub-tbl {
   font-size: calc(var(--fs-table) - 1px);

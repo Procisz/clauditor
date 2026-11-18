@@ -5,7 +5,7 @@ import { esc } from '../ui/dom.js';
 import { openModal, modalSection, modalStat, modalStatRow } from '../ui/modal.js';
 import { subTable } from '../ui/table.js';
 import { t, tn } from '../i18n/index.js';
-import { sessionColumns, sessionRows } from './sessions.js';
+import { sessionColumns, sessionFilter, sessionRows } from './sessions.js';
 
 export function bucketTitle(bucketKey, view) {
   if (view === 'weekly') return t('components.bucketWeek', { key: bucketKey });
@@ -38,6 +38,7 @@ export function openBucketModal(bucketKey, view, entries, { onOpen = null, marku
     pageSize: 5,
     defaultSort: { key: 'cost', dir: 'desc' },
     onRowClick: onOpen ? (row) => { if (row.sessionId) onOpen(row.sessionId); } : null,
+    filter: sessionFilter({ omit: ['type', 'effort', 'agents', 'models'] }),
   });
   return box;
 }
